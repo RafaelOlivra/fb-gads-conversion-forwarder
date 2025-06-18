@@ -170,10 +170,12 @@ function cf_settings_page()
     ?>
     <div class="wrap">
         <h1>Conversion Forwarder Settings</h1>
+        <p>Configure the settings for forwarding conversions to Facebook and Google Ads.</p>
         <form method="post" action="options.php">
             <?php settings_fields('cf_settings_group'); ?>
             <?php do_settings_sections('cf_settings_group'); ?>
             <h2>Facebook API Settings</h2>
+            <p>Read the Facebook Conversions API <a href="https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/user-data-parameters" target="_blank" ref="noreferer">documentation</a> for more information on the required parameters.</p>
             <table class="form-table">
                 <tr valign="top">
                     <th scope="row">Facebook API Token</th>
@@ -186,6 +188,7 @@ function cf_settings_page()
             </table>
 
             <h2>Google Ads API Settings</h2>
+            <p> Read the Google Ads API <a href="https://developers.google.com/google-ads/api/docs/client-libs/dotnet/configuration" target="_blank" ref="noreferer">documentation</a> for more information on the required parameters.</p>
             <table class="form-table">
                 <tr valign="top">
                     <th scope="row">OAuth Access Token</th>
@@ -205,6 +208,18 @@ function cf_settings_page()
                 </tr>
             </table>
 
+            <h2>Endpoint Info</h2>
+            <p>Use the following endpoint to send conversion data:</p>
+            <pre><?php echo esc_url(rest_url('convert/v1/forward')); ?></pre>
+            <p>Example POST data:</p>
+<pre>
+{
+    "fbclid": "FB.12345",
+    "gclid": "EAIaIQob",
+    "value": 50,
+    "event_name": "Purchase"
+}
+</pre>
             <?php submit_button(); ?>
         </form>
     </div>
