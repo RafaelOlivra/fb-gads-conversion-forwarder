@@ -1,4 +1,3 @@
-
 # Conversion Forwarder for WordPress
 
 A lightweight WordPress plugin that acts as a server-side event forwarder for conversion tracking.
@@ -9,8 +8,8 @@ A lightweight WordPress plugin that acts as a server-side event forwarder for co
 
 It listens for incoming HTTP POST or GET requests (from 3rd party sources like affiliate platforms or tracking systems) and **forwards conversion data** to:
 
-- ✅ **Facebook Conversions API**
-- ✅ **Google Ads API (Click Conversion Uploads)**
+-   ✅ **Facebook Conversions API**
+-   ✅ **Google Ads API (Click Conversion Uploads)**
 
 ---
 
@@ -26,14 +25,14 @@ You can send data via POST or GET. Example tools: Postman, affiliate systems, tr
 
 ## ✅ Supported Input Parameters:
 
-| Parameter | Type | Required for | Example |
-|---|---|---|---|
-| fbclid | string | Facebook | `"fbclid": "FB.12345"` |
-| gclid | string | Google Ads | `"gclid": "EAIaIQob"` |
-| gbraid | string | Google Ads | `"gbraid": "some_id"` |
-| event_name | string | Facebook | `"event_name": "Lead"` |
-| value | number | Google Ads | `"value": 100` |
-| ... | ... | Extend as needed | |
+| Parameter  | Type   | Required for     | Example                |
+| ---------- | ------ | ---------------- | ---------------------- |
+| fbclid     | string | Facebook         | `"fbclid": "FB.12345"` |
+| gclid      | string | Google Ads       | `"gclid": "EAIaIQob"`  |
+| gbraid     | string | Google Ads       | `"gbraid": "some_id"`  |
+| event_name | string | Facebook         | `"event_name": "Lead"` |
+| value      | number | Google Ads       | `"value": 100`         |
+| ...        | ...    | Extend as needed |                        |
 
 ---
 
@@ -43,8 +42,8 @@ You can send data via POST or GET. Example tools: Postman, affiliate systems, tr
 
 ```json
 {
-  "fbclid": "FB.12345",
-  "event_name": "Lead"
+    "fbclid": "FB.12345",
+    "event_name": "Lead"
 }
 ```
 
@@ -52,8 +51,8 @@ You can send data via POST or GET. Example tools: Postman, affiliate systems, tr
 
 ```json
 {
-  "gclid": "EAIaIQob",
-  "value": 120
+    "gclid": "EAIaIQob",
+    "value": 120
 }
 ```
 
@@ -61,10 +60,10 @@ You can send data via POST or GET. Example tools: Postman, affiliate systems, tr
 
 ```json
 {
-  "fbclid": "FB.12345",
-  "gclid": "EAIaIQob",
-  "value": 50,
-  "event_name": "Purchase"
+    "fbclid": "FB.12345",
+    "gclid": "EAIaIQob",
+    "value": 50,
+    "event_name": "Purchase"
 }
 ```
 
@@ -80,23 +79,23 @@ WordPress Admin → Settings → Conversion Forwarder
 
 You’ll see fields to configure:
 
-- **Facebook API Token**
-- **Facebook Pixel ID**
-- **Google Ads OAuth Token**
-- **Google Ads Developer Token**
-- **Google Ads Customer ID**
-- **Google Ads Conversion Action ID**
+-   **Facebook API Token**
+-   **Facebook Pixel ID**
+-   **Google Ads OAuth Token**
+-   **Google Ads Developer Token**
+-   **Google Ads Customer ID**
+-   **Google Ads Conversion Action ID**
 
 ---
 
 ## ✅ Requirements:
 
-- For **Facebook**, you need a valid Conversions API Token and Pixel ID.
-- For **Google Ads**, you need:
-  - A Developer Token (from your Google Ads API Console)
-  - Customer ID (your Ads account number)
-  - OAuth Access Token (you’ll need to generate this from Google OAuth flow)
-  - Conversion Action ID (configured in your Google Ads account)
+-   For **Facebook**, you need a valid Conversions API Token and Pixel ID.
+-   For **Google Ads**, you need:
+    -   A Developer Token (from your Google Ads API Console)
+    -   Customer ID (your Ads account number)
+    -   OAuth Access Token (you’ll need to generate this from Google OAuth flow)
+    -   Conversion Action ID (configured in your Google Ads account)
 
 ---
 
