@@ -175,7 +175,7 @@ function cf_settings_page()
             <?php settings_fields('cf_settings_group'); ?>
             <?php do_settings_sections('cf_settings_group'); ?>
             <h2>Facebook API Settings</h2>
-            <p>Read the Facebook Conversions API <a href="https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/user-data-parameters" target="_blank" ref="noreferer">documentation</a> for more information on the required parameters.</p>
+            <p>Read the Facebook Conversions API <a href="https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/" target="_blank" ref="noreferer">documentation</a> for more information on the required parameters.</p>
             <table class="form-table">
                 <tr valign="top">
                     <th scope="row">Facebook API Token</th>
