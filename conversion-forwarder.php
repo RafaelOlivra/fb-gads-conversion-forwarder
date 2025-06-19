@@ -39,7 +39,7 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
     $google_cust_id = get_option('cf_google_customer_id');
     $google_action_id = get_option('cf_google_conversion_action_id');
 
-    // === Validate input ===
+    // Validate input
     if (empty($params['fbclid']) && empty($params['gclid'])) {
         return new WP_REST_Response([
             'status' => 'error',
@@ -56,16 +56,57 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
              * Facebook Conversions API does not accept "fbclid" directly inside user_data.
              * Instead, we need to send it as an "fbc" parameter, which is the correctway to pass click identifiers.
              * The expected format for "fbc" is: "fb.1.{unix_timestamp}.{fbclid}"
-             * Reference: https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/user-data-parameters/#fbc
+             * Reference: https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/
              */
+
+            // Build Facebook user_data
+            $user_data = [
+                'fbc' => 'fb.1.' . $timestamp . '.' . $params['fbclid']
+            ];
+
+            // Map of supported fields for Facebook user_data with corresponding request param keys
+            $facebook_user_fields = [
+                'email' => 'em',
+                'phone' => 'ph',
+                'first_name' => 'fn',
+                'last_name' => 'ln',
+                'city' => 'ct',
+                'state' => 'st',
+                'country' => 'country',
+                'zip' => 'zp',
+                'external_id' => 'external_id',
+            ];
+
+            foreach ($facebook_user_fields as $param_key => $fb_field) {
+                if (!empty($params[$param_key])) {
+                    $value = strtolower(trim($params[$param_key]));
+
+                    // Special handling for phone (digits only)
+                    if ($param_key === 'phone') {
+                        $value = preg_replace('/\D/', '', $value);
+                    }
+
+                    // Facebook expects 2-letter lowercase country codes for country
+                    if ($param_key === 'country') {
+                        $value = substr($value, 0, 2);
+                    }
+
+                    // Hash the value before sending
+                    $user_data[$fb_field] = hash('sha256', $value);
+                }
+            }
+
             $fb_event = [
                 'event_name' => $params['event_name'] ?? 'Lead',
                 'event_time' => $timestamp,
                 'action_source' => 'website',
-                'user_data' => [
-                    'fbc' => 'fb.1.' . $timestamp . '.' . $params['fbclid']
-                ]
+                'user_data' => $user_data
             ];
+
+            // Optional custom data like value
+            if (isset($params['value'])) {
+                $fb_event['custom_data'] = ['value' => floatval($params['value'])];
+            }
 
             $fb_body = [
                 'data' => [$fb_event],
@@ -99,14 +140,16 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
         } else {
             $google_url = "https://googleads.googleapis.com/v13/customers/{$google_cust_id}:uploadClickConversions";
 
+            $conversion = [
+                'conversion_action' => "customers/{$google_cust_id}/conversionActions/{$google_action_id}",
+                'conversion_date_time' => $current_time,
+                'gclid' => $params['gclid'],
+                'conversion_value' => isset($params['value']) ? floatval($params['value']) : 0,
+            ];
+
             $google_body = [
                 'customer_id' => $google_cust_id,
-                'conversions' => [[
-                    'conversion_action' => "customers/{$google_cust_id}/conversionActions/{$google_action_id}",
-                    'conversion_date_time' => $current_time,
-                    'conversion_value' => isset($params['value']) ? floatval($params['value']) : 0,
-                    'gclid' => $params['gclid']
-                ]],
+                'conversions' => [$conversion],
                 'partial_failure' => false
             ];
 
@@ -144,9 +187,8 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
         ], 400);
     }
 
-    // === Save to postback log (for admin dashboard) ===
+    // === Save to postback log ===
     $client_ip = cf_get_ip();
-
     $stored_log = get_transient('cf_postback_log');
     if (!$stored_log) {
         $stored_log = [];
@@ -157,20 +199,16 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
         'ip' => $client_ip,
         'fb' => !empty($params['fbclid']),
         'gclid' => $params['gclid'] ?? '',
-        'fbclid' => $params['fbclid'] ?? ''
+        'fbclid' => $params['fbclid'] ?? '',
+        'parameters' => $params
     ];
 
-    // Keep only last 500 entries
     if (count($stored_log) > 500) {
         $stored_log = array_slice($stored_log, -500);
     }
 
-    // Store the log in a transient for 15 days
     set_transient('cf_postback_log', $stored_log, 15 * DAY_IN_SECONDS);
 
-
-
-    // === Return Success Response ===
     return new WP_REST_Response([
         'status' => 'completed',
         'message' => 'Conversion successfully forwarded.',
@@ -232,7 +270,7 @@ add_action('admin_init', function () {
 
 function cf_settings_page()
 {
-?>
+    ?>
     <div class="wrap">
         <h1>Conversion Forwarder Settings</h1>
         <p>Configure the settings for forwarding conversions to Facebook and Google Ads.</p>
@@ -290,27 +328,27 @@ function cf_settings_page()
 
         <h2>Recent Postbacks (Last 500)</h2>
         <?php
-        $log_data = get_transient('cf_postback_log');
-        if ($log_data && is_array($log_data)) {
-            // Organize log data by date
-            $daily_counts = [];
+            $log_data = get_transient('cf_postback_log');
+    if ($log_data && is_array($log_data)) {
+        // Organize log data by date
+        $daily_counts = [];
 
-            foreach ($log_data as $entry) {
-                $day = substr($entry['time'], 0, 10); // Exemplo: '2025-06-19'
-                if (!isset($daily_counts[$day])) {
-                    $daily_counts[$day] = ['fb' => 0, 'google' => 0];
-                }
-                if (!empty($entry['fb'])) {
-                    $daily_counts[$day]['fb']++;
-                }
-                if (!empty($entry['gclid'])) {
-                    $daily_counts[$day]['google']++;
-                }
+        foreach ($log_data as $entry) {
+            $day = substr($entry['time'], 0, 10); // Exemplo: '2025-06-19'
+            if (!isset($daily_counts[$day])) {
+                $daily_counts[$day] = ['fb' => 0, 'google' => 0];
             }
+            if (!empty($entry['fb'])) {
+                $daily_counts[$day]['fb']++;
+            }
+            if (!empty($entry['gclid'])) {
+                $daily_counts[$day]['google']++;
+            }
+        }
 
-            $labels = array_keys($daily_counts);
-            $data_fb = array_column($daily_counts, 'fb');
-            $data_google = array_column($daily_counts, 'google');
+        $labels = array_keys($daily_counts);
+        $data_fb = array_column($daily_counts, 'fb');
+        $data_google = array_column($daily_counts, 'google');
         ?>
             <div style="width:100%; height:300px; margin-bottom:20px;">
                 <canvas id="cfPostbackChart"></canvas>
@@ -363,6 +401,7 @@ function cf_settings_page()
                         <th>IP</th>
                         <th>fbclid</th>
                         <th>gclid</th>
+                        <th>Parameters</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -372,15 +411,16 @@ function cf_settings_page()
                             <td><?php echo esc_html($entry['ip']); ?></td>
                             <td><?php echo esc_html($entry['fbclid']); ?></td>
                             <td><?php echo esc_html($entry['gclid']); ?></td>
+                            <td><?php echo esc_html(json_encode($entry['parameters'])); ?></td>
                         </tr>
                     <?php } ?>
                 </tbody>
             </table>
         <?php
-        } else {
-            echo '<p>No postbacks received yet.</p>';
-        }
-        ?>
+    } else {
+        echo '<p>No postbacks received yet.</p>';
+    }
+    ?>
 
     </div>
 <?php
