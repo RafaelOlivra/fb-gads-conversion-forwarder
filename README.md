@@ -25,25 +25,43 @@ You can send data via POST or GET. Example tools: Postman, affiliate systems, tr
 
 ## ✅ Supported Input Parameters:
 
-| Parameter  | Type   | Required for     | Example                |
-| ---------- | ------ | ---------------- | ---------------------- |
-| fbclid     | string | Facebook         | `"fbclid": "FB.12345"` |
-| gclid      | string | Google Ads       | `"gclid": "EAIaIQob"`  |
-| gbraid     | string | Google Ads       | `"gbraid": "some_id"`  |
-| event_name | string | Facebook         | `"event_name": "Lead"` |
-| value      | number | Google Ads       | `"value": 100`         |
-| ...        | ...    | Extend as needed |                        |
+| Parameter   | Type   | Required for | Example                       |
+| ----------- | ------ | ------------ | ----------------------------- |
+| fbclid      | string | Facebook     | `"fbclid": "FB.12345"`        |
+| gclid       | string | Google Ads   | `"gclid": "EAIaIQob"`         |
+| gbraid      | string | Google Ads   | `"gbraid": "some_id"`         |
+| event_name  | string | Facebook     | `"event_name": "Lead"`        |
+| value       | number | Both         | `"value": 100`                |
+| email       | string | Facebook     | `"email": "user@example.com"` |
+| phone       | string | Facebook     | `"phone": "+5511912345678"`   |
+| first_name  | string | Facebook     | `"first_name": "John"`        |
+| last_name   | string | Facebook     | `"last_name": "Doe"`          |
+| city        | string | Facebook     | `"city": "Sao Paulo"`         |
+| state       | string | Facebook     | `"state": "SP"`               |
+| country     | string | Facebook     | `"country": "BR"`             |
+| zip         | string | Facebook     | `"zip": "01234-567"`          |
+| external_id | string | Facebook     | `"external_id": "user123"`    |
 
 ---
 
 ## ✅ Example Payloads:
 
-### Facebook Only:
+### Facebook Only (with user data):
 
 ```json
 {
     "fbclid": "FB.12345",
-    "event_name": "Lead"
+    "event_name": "Lead",
+    "email": "user@example.com",
+    "phone": "+5511912345678",
+    "first_name": "John",
+    "last_name": "Doe",
+    "city": "Sao Paulo",
+    "state": "SP",
+    "country": "BR",
+    "zip": "01234-567",
+    "external_id": "user123",
+    "value": 100
 }
 ```
 
@@ -63,7 +81,8 @@ You can send data via POST or GET. Example tools: Postman, affiliate systems, tr
     "fbclid": "FB.12345",
     "gclid": "EAIaIQob",
     "value": 50,
-    "event_name": "Purchase"
+    "event_name": "Purchase",
+    "email": "user@example.com"
 }
 ```
 
@@ -103,9 +122,19 @@ You’ll see fields to configure:
 
 For each call, the plugin will return a JSON showing the forwarding status and any API responses.
 
+Additionally, a log of recent postbacks is stored and available in your WordPress backend (under the plugin settings area).
+
 ---
 
 ## ✅ Disclaimer:
 
 This plugin does **not handle OAuth token generation for Google Ads**.  
 You must generate the OAuth access token separately and paste it in the settings page.
+
+---
+
+## ✅ Future Improvements:
+
+-   Support for more advertising platforms (TikTok Ads, LinkedIn, etc.)
+-   Built-in OAuth flow for Google Ads (coming soon)
+-   More flexible event parameter mapping
