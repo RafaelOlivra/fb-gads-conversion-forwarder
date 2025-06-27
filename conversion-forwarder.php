@@ -357,14 +357,16 @@ add_action('admin_init', function () {
  */
 function cf_settings_page()
 {
-    ?>
+?>
     <div class="wrap">
         <h1>Conversion Forwarder Settings</h1>
         <p>Configure the settings for forwarding conversions to Facebook and Google Ads.</p>
         <form method="post" action="options.php">
-            <?php settings_fields('cf_settings_group'); // Output hidden fields for settings group.?>
-            <?php do_settings_sections('cf_settings_group'); // Output registered settings sections.?>
-            
+            <?php settings_fields('cf_settings_group'); // Output hidden fields for settings group.
+            ?>
+            <?php do_settings_sections('cf_settings_group'); // Output registered settings sections.
+            ?>
+
             <h2>Facebook API Settings</h2>
             <p>Read the Facebook Conversions API <a href="https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/" target="_blank" rel="noreferrer noopener">documentation</a> for more information on the required parameters.</p>
             <table class="form-table">
@@ -433,33 +435,45 @@ function cf_settings_page()
     "external_id": "user123"
 }
 </pre>
-            <?php submit_button(); // WordPress submit button.?>
+            <?php submit_button(); ?>
         </form>
 
-        <h2>Recent Postbacks (Last 500)</h2>
+        <h2>Recent Postbacks (Unique gclids/fbclids)</h2>
         <?php
-            $log_data = get_transient('cf_postback_log'); // Retrieve the transient log data.
-    if ($log_data && is_array($log_data)) {
-        // Organize log data by date for charting.
-        $daily_counts = [];
-        foreach ($log_data as $entry) {
-            // Extract date part from timestamp.
-            $day = substr($entry['time'], 0, 10);
-            if (!isset($daily_counts[$day])) {
-                $daily_counts[$day] = ['fb' => 0, 'google' => 0];
-            }
-            if (!empty($entry['fb'])) {
-                $daily_counts[$day]['fb']++;
-            }
-            if (!empty($entry['gclid'])) {
-                $daily_counts[$day]['google']++;
-            }
-        }
+        $log_data = get_transient('cf_postback_log'); // Retrieve the transient log data.
+        if ($log_data && is_array($log_data)) {
+            $daily_fbclids = [];
+            $daily_gclids = [];
 
-        // Prepare data for Chart.js.
-        $labels = array_keys($daily_counts);
-        $data_fb = array_column($daily_counts, 'fb');
-        $data_google = array_column($daily_counts, 'google');
+            foreach ($log_data as $entry) {
+                $day = substr($entry['time'], 0, 10);
+
+                if (!isset($daily_fbclids[$day])) {
+                    $daily_fbclids[$day] = [];
+                }
+                if (!isset($daily_gclids[$day])) {
+                    $daily_gclids[$day] = [];
+                }
+
+                if (!empty($entry['fbclid'])) {
+                    $daily_fbclids[$day][$entry['fbclid']] = true;
+                }
+                if (!empty($entry['gclid'])) {
+                    $daily_gclids[$day][$entry['gclid']] = true;
+                }
+            }
+
+            $all_days = array_unique(array_merge(array_keys($daily_fbclids), array_keys($daily_gclids)));
+            sort($all_days);
+
+            $labels = $all_days;
+            $data_fb = [];
+            $data_google = [];
+
+            foreach ($all_days as $day) {
+                $data_fb[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
+                $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
+            }
         ?>
             <div style="width:100%; max-width:800px; height:300px; margin-bottom:20px;">
                 <canvas id="cfPostbackChart"></canvas>
@@ -537,7 +551,8 @@ function cf_settings_page()
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach (array_reverse($log_data) as $entry) { // Display in reverse chronological order.?>
+                    <?php foreach (array_reverse($log_data) as $entry) { // Display in reverse chronological order.
+                    ?>
                         <tr>
                             <td><?php echo esc_html($entry['time']); ?></td>
                             <td><?php echo esc_html($entry['ip']); ?></td>
@@ -549,10 +564,10 @@ function cf_settings_page()
                 </tbody>
             </table>
         <?php
-    } else {
-        echo '<p>No postbacks received yet.</p>';
-    }
-    ?>
+        } else {
+            echo '<p>No postbacks received yet.</p>';
+        }
+        ?>
 
     </div>
 <?php
