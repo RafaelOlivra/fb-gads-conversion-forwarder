@@ -349,6 +349,7 @@ add_action('admin_init', function () {
     register_setting('cf_settings_group', 'cf_google_developer_token');
     register_setting('cf_settings_group', 'cf_google_customer_id');
     register_setting('cf_settings_group', 'cf_google_conversion_action_id');
+    register_setting('cf_settings_group', 'cf_postback_filter');
 });
 
 /**
@@ -414,6 +415,20 @@ function cf_settings_page()
                 </tr>
             </table>
 
+            <h2>Postback Logs Preview</h2>
+            <p>Preview and filter the postbacks logs.<br><strong>Note:</strong> <em>This does not affect the data sent to the endpoint, only the logs displayed here.</em></p>
+
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row">Strings to Remove (comma-separated)</th>
+                    <td><input type="text" name="cf_postback_filter" value="<?php echo esc_attr(get_option('cf_postback_filter')); ?>" /></td>
+                </tr>
+            </table>
+
+            <?php submit_button(); ?>
+
+            <hr>
+
             <h2>Endpoint Information</h2>
             <p>Send your conversion data to the following endpoint:</p>
             <pre><code><?php echo esc_url(rest_url('convert/v1/forward')); ?></code></pre>
@@ -435,8 +450,10 @@ function cf_settings_page()
     "external_id": "user123"
 }
 </pre>
-            <?php submit_button(); ?>
+
         </form>
+
+        <hr>
 
         <h2>Recent Postbacks (Unique gclids/fbclids)</h2>
         <?php
@@ -445,7 +462,28 @@ function cf_settings_page()
             $daily_fbclids = [];
             $daily_gclids = [];
 
-            foreach ($log_data as $entry) {
+
+            // Sanitize and filter out unwanted strings
+            $filter_strings = explode(',', get_option('cf_postback_filter', ''));
+            $filter_strings = array_map('trim', $filter_strings);
+
+            foreach ($log_data as $i => $entry) {
+                $continue = true;
+
+                // Check if any of the filter strings are present in the entry string.
+                $entry_string = json_encode($entry); // Convert entry to string for filtering.
+                foreach ($filter_strings as $filter) {
+                    if (strpos($entry_string, $filter) !== false) {
+                        unset($log_data[$i]); // Remove the entry if it contains any filter string.
+                        $continue = false; // If any filter string is found, skip this entry.
+                    }
+                }
+
+                // Skip this entry if it contains any filter string.
+                if (!$continue) {
+                    continue;
+                }
+
                 $day = substr($entry['time'], 0, 10);
 
                 if (!isset($daily_fbclids[$day])) {
@@ -475,7 +513,7 @@ function cf_settings_page()
                 $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
             }
         ?>
-            <div style="width:100%; max-width:800px; height:300px; margin-bottom:20px;">
+            <div style="width:100%; height:300px; margin-bottom:20px;">
                 <canvas id="cfPostbackChart"></canvas>
             </div>
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -539,6 +577,8 @@ function cf_settings_page()
                     }
                 });
             </script>
+
+            <h2>Recent Postbacks (Log)</h2>
 
             <table class="widefat fixed striped">
                 <thead>
