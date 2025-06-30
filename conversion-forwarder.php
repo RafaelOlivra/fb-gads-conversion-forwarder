@@ -271,9 +271,9 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
         'parameters' => $params // Store all incoming parameters for debugging.
     ];
 
-    // Keep the log limited to the last 500 entries.
-    if (count($stored_log) > 500) {
-        $stored_log = array_slice($stored_log, -500);
+    // Keep the log limited to the last 500000 entries. (Just a hard limit for safety, adjust as needed.)
+    if (count($stored_log) > 500000) {
+        $stored_log = array_slice($stored_log, -500000);
     }
 
     // Save the updated log back to the transient, expiring in 60 days.
