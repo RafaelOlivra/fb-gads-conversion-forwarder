@@ -169,7 +169,7 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
 
             // Remove any null or empty values from the event data.
             $fb_event = array_filter($fb_event, function ($value) {
-                return !is_null($value) && $value !== '';
+                return !is_null($value) && $value !== '' && $value !== [];
             });
 
             // Construct the full Facebook API request body.
