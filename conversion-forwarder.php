@@ -167,6 +167,11 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
                 $fb_event['custom_data']['currency'] = 'USD'; // Default currency.
             }
 
+            // Remove any null or empty values from the event data.
+            $fb_event = array_filter($fb_event, function ($value) {
+                return !is_null($value) && $value !== '';
+            });
+
             // Construct the full Facebook API request body.
             $fb_body = [
                 'data' => [$fb_event],
