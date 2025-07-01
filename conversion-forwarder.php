@@ -153,9 +153,18 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
                 'user_data' => $user_data
             ];
 
-            // Add custom data if 'value' parameter is present.
-            if (isset($params['value'])) {
-                $fb_event['custom_data'] = ['value' => floatval($params['value'])];
+            // Add custom data if provided.
+            $custom_data_keys = ['value', 'currency', 'predicted_ltv', 'customer_segmentation', 'content_type', 'content_ids', 'contents', 'event_id'];
+            $fb_event['custom_data'] = []; // Initialize custom_data array.
+            foreach ($custom_data_keys as $key) {
+                if (isset($params[$key])) {
+                    $fb_event['custom_data'][$key] = sanitize_text_field($params[$key]);
+                }
+            }
+
+            // Ensure 'currency' is set, default to 'USD' if not provided.
+            if (!empty($fb_event['custom_data']) && !isset($fb_event['custom_data']['currency'])) {
+                $fb_event['custom_data']['currency'] = 'USD'; // Default currency.
             }
 
             // Construct the full Facebook API request body.
@@ -358,15 +367,15 @@ add_action('admin_init', function () {
  */
 function cf_settings_page()
 {
-?>
+    ?>
     <div class="wrap">
         <h1>Conversion Forwarder Settings</h1>
         <p>Configure the settings for forwarding conversions to Facebook and Google Ads.</p>
         <form method="post" action="options.php">
             <?php settings_fields('cf_settings_group'); // Output hidden fields for settings group.
-            ?>
+    ?>
             <?php do_settings_sections('cf_settings_group'); // Output registered settings sections.
-            ?>
+    ?>
 
             <h2>Facebook API Settings</h2>
             <p>Read the Facebook Conversions API <a href="https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/" target="_blank" rel="noreferrer noopener">documentation</a> for more information on the required parameters.</p>
@@ -458,60 +467,60 @@ function cf_settings_page()
         <h2>Recent Postbacks (Unique gclids/fbclids)</h2>
         <?php
         $log_data = get_transient('cf_postback_log'); // Retrieve the transient log data.
-        if ($log_data && is_array($log_data)) {
-            $daily_fbclids = [];
-            $daily_gclids = [];
+    if ($log_data && is_array($log_data)) {
+        $daily_fbclids = [];
+        $daily_gclids = [];
 
 
-            // Sanitize and filter out unwanted strings
-            $filter_strings = explode(',', get_option('cf_postback_filter', ''));
-            $filter_strings = array_map('trim', $filter_strings);
+        // Sanitize and filter out unwanted strings
+        $filter_strings = explode(',', get_option('cf_postback_filter', ''));
+        $filter_strings = array_map('trim', $filter_strings);
 
-            foreach ($log_data as $i => $entry) {
-                $continue = true;
+        foreach ($log_data as $i => $entry) {
+            $continue = true;
 
-                // Check if any of the filter strings are present in the entry string.
-                $entry_string = json_encode($entry); // Convert entry to string for filtering.
-                foreach ($filter_strings as $filter) {
-                    if (strpos($entry_string, $filter) !== false) {
-                        unset($log_data[$i]); // Remove the entry if it contains any filter string.
-                        $continue = false; // If any filter string is found, skip this entry.
-                    }
-                }
-
-                // Skip this entry if it contains any filter string.
-                if (!$continue) {
-                    continue;
-                }
-
-                $day = substr($entry['time'], 0, 10);
-
-                if (!isset($daily_fbclids[$day])) {
-                    $daily_fbclids[$day] = [];
-                }
-                if (!isset($daily_gclids[$day])) {
-                    $daily_gclids[$day] = [];
-                }
-
-                if (!empty($entry['fbclid'])) {
-                    $daily_fbclids[$day][$entry['fbclid']] = true;
-                }
-                if (!empty($entry['gclid'])) {
-                    $daily_gclids[$day][$entry['gclid']] = true;
+            // Check if any of the filter strings are present in the entry string.
+            $entry_string = json_encode($entry); // Convert entry to string for filtering.
+            foreach ($filter_strings as $filter) {
+                if (strpos($entry_string, $filter) !== false) {
+                    unset($log_data[$i]); // Remove the entry if it contains any filter string.
+                    $continue = false; // If any filter string is found, skip this entry.
                 }
             }
 
-            $all_days = array_unique(array_merge(array_keys($daily_fbclids), array_keys($daily_gclids)));
-            sort($all_days);
-
-            $labels = $all_days;
-            $data_fb = [];
-            $data_google = [];
-
-            foreach ($all_days as $day) {
-                $data_fb[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
-                $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
+            // Skip this entry if it contains any filter string.
+            if (!$continue) {
+                continue;
             }
+
+            $day = substr($entry['time'], 0, 10);
+
+            if (!isset($daily_fbclids[$day])) {
+                $daily_fbclids[$day] = [];
+            }
+            if (!isset($daily_gclids[$day])) {
+                $daily_gclids[$day] = [];
+            }
+
+            if (!empty($entry['fbclid'])) {
+                $daily_fbclids[$day][$entry['fbclid']] = true;
+            }
+            if (!empty($entry['gclid'])) {
+                $daily_gclids[$day][$entry['gclid']] = true;
+            }
+        }
+
+        $all_days = array_unique(array_merge(array_keys($daily_fbclids), array_keys($daily_gclids)));
+        sort($all_days);
+
+        $labels = $all_days;
+        $data_fb = [];
+        $data_google = [];
+
+        foreach ($all_days as $day) {
+            $data_fb[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
+            $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
+        }
         ?>
             <div style="width:100%; height:300px; margin-bottom:20px;">
                 <canvas id="cfPostbackChart"></canvas>
@@ -592,7 +601,7 @@ function cf_settings_page()
                 </thead>
                 <tbody>
                     <?php foreach (array_reverse($log_data) as $entry) { // Display in reverse chronological order.
-                    ?>
+                        ?>
                         <tr>
                             <td><?php echo esc_html($entry['time']); ?></td>
                             <td><?php echo esc_html($entry['ip']); ?></td>
@@ -604,10 +613,10 @@ function cf_settings_page()
                 </tbody>
             </table>
         <?php
-        } else {
-            echo '<p>No postbacks received yet.</p>';
-        }
-        ?>
+    } else {
+        echo '<p>No postbacks received yet.</p>';
+    }
+    ?>
 
     </div>
 <?php
