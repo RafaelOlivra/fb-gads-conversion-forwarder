@@ -447,7 +447,7 @@ function cf_settings_page()
             <p>Send your conversion data to the following endpoint:</p>
             <pre><code><?php echo esc_url(rest_url('convert/v1/forward')); ?></code></pre>
             <p>Example POST/GET data (JSON for POST, query parameters for GET):</p>
-            <pre>
+<pre>
 {
     "fbclid": "ABCD1234567890EFGHIJ",
     "gclid": "EAIaIQobABCD1234567890EFGHIJ",
@@ -464,18 +464,28 @@ function cf_settings_page()
     "external_id": "user123"
 }
 </pre>
-
         </form>
 
         <hr>
 
         <h2>Recent Postbacks (Unique gclids/fbclids)</h2>
-        <?php
-        $log_data = get_transient('cf_postback_log'); // Retrieve the transient log data.
+
+    <?php
+
+    // Retrieve the transient log data.
+    $log_data = get_transient('cf_postback_log');
+
+    // If log data is not an array, initialize it.
+    if (!is_array($log_data)) {
+        $log_data = [];
+    }
+
+    // Reverse the log data to show the most recent first.
+    $log_data = array_reverse($log_data);
+
     if ($log_data && is_array($log_data)) {
         $daily_fbclids = [];
         $daily_gclids = [];
-
 
         // Sanitize and filter out unwanted strings
         $filter_strings = explode(',', get_option('cf_postback_filter', ''));
@@ -592,8 +602,21 @@ function cf_settings_page()
                 });
             </script>
 
-            <h2>Recent Postbacks (Log)</h2>
+            <h2 id="recent-postbacks">Recent Postbacks (Log)</h2>
 
+            <?php
+                $pagination = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
+        $items_per_page = 100; // Number of items to display per page.
+
+        // Paginate the log data.
+        $total_items = count($log_data);
+        $total_pages = ceil($total_items / $items_per_page);
+        $offset = ($pagination - 1) * $items_per_page;
+        $log_data = array_slice($log_data, $offset, $items_per_page);
+        ?>
+
+            <p>Displaying the most recent <?php echo $items_per_page; ?> postbacks. Total: <?php echo $total_items; ?>.</p>
+            
             <table class="widefat fixed striped">
                 <thead>
                     <tr>
@@ -617,6 +640,21 @@ function cf_settings_page()
                     <?php } ?>
                 </tbody>
             </table>
+
+            <?php
+                // Display pagination links.
+                if ($total_pages > 1) {
+                    echo '<div class="tablenav"><div class="tablenav-pages">';
+                    for ($i = 1; $i <= $total_pages; $i++) {
+                        if ($i === $pagination) {
+                            echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
+                        } else {
+                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
+                        }
+                    }
+                    echo '</div></div>';
+                }
+        ?>
         <?php
     } else {
         echo '<p>No postbacks received yet.</p>';
