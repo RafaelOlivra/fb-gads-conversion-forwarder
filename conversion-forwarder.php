@@ -268,30 +268,17 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
         ], 400); // Return 400 Bad Request if there were errors.
     }
 
-    // === Save to Postback Log (using WordPress Transients) ===
-    $client_ip = cf_get_ip(); // Get the client's IP address.
-    $stored_log = get_transient('cf_postback_log'); // Retrieve existing log.
-    if (!is_array($stored_log)) {
-        $stored_log = []; // Initialize if no log exists or it's not an array.
-    }
-
-    // Add current postback entry to the log.
-    $stored_log[] = [
+    // === Save to Postback Log ===
+    $entry = [
         'time' => $current_time,
-        'ip' => $client_ip,
-        'fb' => !empty($params['fbclid']), // True if fbclid was present.
+        'ip' => cf_get_ip(),
         'gclid' => sanitize_text_field($params['gclid'] ?? ''),
         'fbclid' => sanitize_text_field($params['fbclid'] ?? ''),
         'parameters' => $params // Store all incoming parameters for debugging.
     ];
 
-    // Keep the log limited to the last 500000 entries. (Just a hard limit for safety, adjust as needed.)
-    if (count($stored_log) > 500000) {
-        $stored_log = array_slice($stored_log, -500000);
-    }
-
-    // Save the updated log back to the transient, expiring in 60 days.
-    set_transient('cf_postback_log', $stored_log, 60 * DAY_IN_SECONDS);
+    // Store the log entry in the postback log.
+    cf_store_log_entry($entry);
 
     // Return successful response.
     return new WP_REST_Response([
@@ -299,6 +286,77 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
         'message' => 'Conversion successfully forwarded.',
         'log' => $log
     ], 200); // OK status.
+}
+
+// === Utils ===
+
+/**
+ * Stores a log entry in the postback log transient.
+ * This function is used to keep track of successful postbacks for debugging and monitoring.
+ *
+ * @param array $entry The log entry to store, should include 'time', 'ip', 'gclid', 'fbclid', and 'parameters'.
+ */
+function cf_store_log_entry($entry)
+{
+    // Retrieve existing log entries from option.
+    $stored_log = get_option('cf_postback_log');
+
+    // If no log exists or it's not an array, initialize it.
+    if (!is_array($stored_log)) {
+        $stored_log = [];
+    }
+
+    // Fallback for older versions of the plugin.
+    // Old logs were stored in a transient, but now we use an option.
+    if (empty($stored_log)) {
+        $stored_log = get_transient('cf_postback_log');
+        if (!is_array($stored_log)) {
+            $stored_log = [];
+        }
+    }
+
+    // Add the new entry to the log.
+    $stored_log[] = $entry;
+
+    // Limit the log to the last 500000 entries (or any other reasonable limit).
+    if (count($stored_log) > 500000) {
+        $stored_log = array_slice($stored_log, -500000);
+    }
+
+    // Save the updated log back to the option.
+    update_option('cf_postback_log', $stored_log);
+}
+
+/**
+ * Retrieves the postback log from the transient.
+ * This function is used to display the log entries on the admin settings page.
+ *
+ * @return array The postback log entries, reversed to show the most recent first.
+ */
+function cf_get_postback_log()
+{
+    // Retrieve the postback log from the option.
+    $log_data = get_option('cf_postback_log');
+
+    // If log data is not an array, initialize it.
+    if (!is_array($log_data)) {
+        $log_data = [];
+    }
+
+    // Fallback for older versions of the plugin.
+    // Old logs were stored in a transient, but now we use an option.
+    if (empty($log_data)) {
+        $log_data = get_transient('cf_postback_log');
+        if (!is_array($log_data)) {
+            $log_data = [];
+        }
+    }
+
+    // Reverse the log data to show the most recent first.
+    $log_data = array_reverse($log_data);
+
+    // Return the log data.
+    return $log_data;
 }
 
 /**
