@@ -665,7 +665,7 @@ function cf_settings_page()
             $log_data    = array_slice($log_data, $offset, $items_per_page);
             ?>
 
-            <p>Displaying the most recent <?php echo $items_per_page; ?> postbacks. Total:<?php echo $total_items; ?>.</p>
+            <p>Displaying page <?php echo $pagination; ?> of <?php echo $total_pages; ?>. Total postbacks: <?php echo $total_items; ?>.</p>
 
             <table class="widefat fixed striped">
                 <thead>
