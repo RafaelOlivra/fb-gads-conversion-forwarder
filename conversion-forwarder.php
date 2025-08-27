@@ -655,19 +655,47 @@ function cf_settings_page()
             <h2 id="recent-postbacks">Recent Postbacks (Log)</h2>
 
             <?php
+
+            $search_query   = isset($_GET['search']) ? sanitize_text_field($_GET['search']) : ''; // Search query.
             $pagination     = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
-            $items_per_page = 100;                                                  // Number of items to display per page.
+
+            // Allow to search within the log data.
+            if (!empty($search_query)) {
+                $keep = [];
+                for ($i = 0; $i < count($log_data); $i++) {
+                    if (stripos($log_data[$i]['ip'], $search_query) !== false ||
+                        stripos($log_data[$i]['fbclid'], $search_query) !== false ||
+                        stripos($log_data[$i]['gclid'], $search_query) !== false ||
+                        stripos(json_encode($log_data[$i]['parameters']), $search_query) !== false
+                    ) {
+                        $keep[] = $log_data[$i];
+                    }
+                }
+                $log_data = $keep;
+            }
+            ?>
+
+            <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>">
+                <input type="hidden" name="page" value="conversion_forwarder" />
+                <input type="hidden" name="pbpage" value="<?php echo esc_attr($pagination); ?>" />
+                <input type="text" name="search" value="<?php echo esc_attr($search_query); ?>" placeholder="Search..." />
+                <input type="submit" value="Search" class="button" />
+            </form>
+
+            <?php
+            $items_per_page = 100;
 
             // Paginate the log data.
             $total_items = count($log_data);
             $total_pages = ceil($total_items / $items_per_page);
             $offset      = ($pagination - 1) * $items_per_page;
+
             $log_data    = array_slice($log_data, $offset, $items_per_page);
             ?>
 
             <p>Displaying page <?php echo $pagination; ?> of <?php echo $total_pages; ?>. Total postbacks: <?php echo $total_items; ?>.</p>
 
-            <table class="widefat fixed striped">
+            <table class="widefat fixed striped" id="conversion-log">
                 <thead>
                     <tr>
                         <th>Time</th>
