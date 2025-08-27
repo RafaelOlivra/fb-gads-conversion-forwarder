@@ -656,7 +656,7 @@ function cf_settings_page()
 
             <?php
 
-            $search_query   = isset($_GET['search']) ? sanitize_text_field($_GET['search']) : ''; // Search query.
+            $search_query   = isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
             $pagination     = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
 
             // Allow to search within the log data.
@@ -693,7 +693,11 @@ function cf_settings_page()
             $log_data    = array_slice($log_data, $offset, $items_per_page);
             ?>
 
+            <?php if ($total_items > 0) { ?>
             <p>Displaying page <?php echo $pagination; ?> of <?php echo $total_pages; ?>. Total postbacks: <?php echo $total_items; ?>.</p>
+            <?php } else { ?>
+            <p>No postbacks found.</p>
+            <?php } ?>
 
             <table class="widefat fixed striped" id="conversion-log">
                 <thead>
