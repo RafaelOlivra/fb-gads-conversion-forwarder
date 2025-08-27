@@ -1,18 +1,19 @@
 <?php
-/*
-Plugin Name: Conversion Forwarder
-Description: Forwards incoming conversion postbacks to Facebook Conversions API and Google Ads API.
-Version: 1.0
-Author: RO
-*/
+
+/**
+ * Plugin Name: Conversion Forwarder
+ * Description: Forwards incoming conversion postbacks to Facebook Conversions API and Google Ads API.
+ * Version: 1.0
+ * Author: RO
+ */
 
 // === Register REST Endpoint ===
 add_action('rest_api_init', function () {
-    register_rest_route('convert/v1', '/forward', array(
-        'methods' => 'POST,GET',
-        'callback' => 'cf_handle_incoming_conversion',
-        'permission_callback' => '__return_true' // Public endpoint, security relies on fbclid/gclid and configured API keys.
-    ));
+    register_rest_route('convert/v1', '/forward', [
+        'methods'             => 'POST,GET',
+        'callback'            => 'cf_handle_incoming_conversion',
+        'permission_callback' => '__return_true', // Public endpoint, security relies on fbclid/gclid and configured API keys.
+    ]);
 });
 
 /**
@@ -24,28 +25,28 @@ add_action('rest_api_init', function () {
 function cf_get_fresh_google_access_token()
 {
     // Retrieve Google OAuth credentials from WordPress options.
-    $client_id = get_option('cf_google_client_id');
+    $client_id     = get_option('cf_google_client_id');
     $client_secret = get_option('cf_google_client_secret');
     $refresh_token = get_option('cf_google_refresh_token');
 
     // Validate if all necessary credentials are provided.
-    if (!$client_id || !$client_secret || !$refresh_token) {
+    if (! $client_id || ! $client_secret || ! $refresh_token) {
         return new WP_Error('missing_credentials', 'Missing Google OAuth credentials (client_id, client_secret, or refresh_token). Please configure them in the plugin settings.');
     }
 
     // Prepare the request body for the OAuth token endpoint.
     $body = [
-        'client_id' => $client_id,
+        'client_id'     => $client_id,
         'client_secret' => $client_secret,
         'refresh_token' => $refresh_token,
-        'grant_type' => 'refresh_token'
+        'grant_type'    => 'refresh_token',
     ];
 
     // Make a POST request to Google's OAuth 2.0 token endpoint.
     $response = wp_remote_post('https://oauth2.googleapis.com/token', [
-        'body' => $body,
-        'timeout' => 10, // Set a timeout for the API request.
-        'headers' => ['Content-Type' => 'application/x-www-form-urlencoded'] // Required for token endpoint.
+        'body'    => $body,
+        'timeout' => 10,                                                      // Set a timeout for the API request.
+        'headers' => ['Content-Type' => 'application/x-www-form-urlencoded'], // Required for token endpoint.
     ]);
 
     // Check for WP_Error during the remote request.
@@ -57,7 +58,7 @@ function cf_get_fresh_google_access_token()
     $body_decoded = json_decode(wp_remote_retrieve_body($response), true);
 
     // Check if the access token is present in the response.
-    if (!isset($body_decoded['access_token'])) {
+    if (! isset($body_decoded['access_token'])) {
         return new WP_Error('token_error', 'Could not retrieve access token from Google OAuth. Response: ' . json_encode($body_decoded), $body_decoded);
     }
 
@@ -73,10 +74,10 @@ function cf_get_fresh_google_access_token()
  */
 function cf_handle_incoming_conversion(WP_REST_Request $request)
 {
-    $params = $request->get_params(); // Get all parameters from the incoming request.
-    $log = []; // Initialize array to store successful API responses.
-    $errors = []; // Initialize array to store any errors encountered.
-    $timestamp = time(); // Current Unix timestamp for event timing.
+    $params       = $request->get_params();               // Get all parameters from the incoming request.
+    $log          = [];                                   // Initialize array to store successful API responses.
+    $errors       = [];                                   // Initialize array to store any errors encountered.
+    $timestamp    = time();                               // Current Unix timestamp for event timing.
     $current_time = gmdate("Y-m-d\TH:i:s\Z", $timestamp); // Formatted time for Google Ads API.
 
     // Retrieve Facebook API credentials from WordPress options.
@@ -85,21 +86,21 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
 
     // Retrieve Google Ads API credentials from WordPress options.
     $google_dev_token = get_option('cf_google_developer_token');
-    $google_cust_id = get_option('cf_google_customer_id');
+    $google_cust_id   = get_option('cf_google_customer_id');
     $google_action_id = get_option('cf_google_conversion_action_id');
 
     // Validate input: At least one of fbclid or gclid must be provided.
     if (empty($params['fbclid']) && empty($params['gclid'])) {
         return new WP_REST_Response([
-            'status' => 'error',
+            'status'  => 'error',
             'message' => 'Missing required identifier: at least one of fbclid or gclid must be provided.',
         ], 400); // Bad request status.
     }
 
     // === Forward to Facebook Conversions API ===
-    if (!empty($params['fbclid'])) {
+    if (! empty($params['fbclid'])) {
         // Check if Facebook API credentials are set.
-        if (!$fb_token || !$pixel_id) {
+        if (! $fb_token || ! $pixel_id) {
             $errors['facebook'] = 'Missing Facebook API credentials (token or pixel_id). Please configure them in the plugin settings.';
         } else {
             /**
@@ -108,25 +109,25 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
              * Reference: https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/
              */
             $user_data = [
-                'fbc' => 'fb.1.' . $timestamp . '.' . sanitize_text_field($params['fbclid'])
+                'fbc' => 'fb.1.' . $timestamp . '.' . sanitize_text_field($params['fbclid']),
             ];
 
             // Define mapping of incoming request parameters to Facebook user_data fields.
             $facebook_user_fields = [
-                'email' => 'em',
-                'phone' => 'ph',
-                'first_name' => 'fn',
-                'last_name' => 'ln',
-                'city' => 'ct',
-                'state' => 'st',
-                'country' => 'country',
-                'zip' => 'zp',
+                'email'       => 'em',
+                'phone'       => 'ph',
+                'first_name'  => 'fn',
+                'last_name'   => 'ln',
+                'city'        => 'ct',
+                'state'       => 'st',
+                'country'     => 'country',
+                'zip'         => 'zp',
                 'external_id' => 'external_id',
             ];
 
             // Process and hash user data for Facebook.
             foreach ($facebook_user_fields as $param_key => $fb_field) {
-                if (!empty($params[$param_key])) {
+                if (! empty($params[$param_key])) {
                     // Sanitize and convert to lowercase for consistent hashing.
                     $value = strtolower(trim(sanitize_text_field($params[$param_key])));
 
@@ -147,14 +148,14 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
 
             // Construct the Facebook event payload.
             $fb_event = [
-                'event_name' => sanitize_text_field($params['event_name'] ?? 'Lead'), // Default to 'Lead' if not provided.
-                'event_time' => $timestamp,
+                'event_name'    => sanitize_text_field($params['event_name'] ?? 'Lead'), // Default to 'Lead' if not provided.
+                'event_time'    => $timestamp,
                 'action_source' => 'website', // Indicates the event originated from a website.
-                'user_data' => $user_data
+                'user_data'     => $user_data,
             ];
 
             // Add custom data if provided.
-            $custom_data_keys = ['value', 'currency', 'predicted_ltv', 'customer_segmentation', 'content_type', 'content_ids', 'contents', 'event_id'];
+            $custom_data_keys        = ['value', 'currency', 'predicted_ltv', 'customer_segmentation', 'content_type', 'content_ids', 'contents', 'event_id'];
             $fb_event['custom_data'] = []; // Initialize custom_data array.
             foreach ($custom_data_keys as $key) {
                 if (isset($params[$key])) {
@@ -163,26 +164,26 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
             }
 
             // Ensure 'currency' is set, default to 'USD' if not provided.
-            if (!empty($fb_event['custom_data']) && !isset($fb_event['custom_data']['currency'])) {
+            if (! empty($fb_event['custom_data']) && ! isset($fb_event['custom_data']['currency'])) {
                 $fb_event['custom_data']['currency'] = 'USD'; // Default currency.
             }
 
             // Remove any null or empty values from the event data.
             $fb_event = array_filter($fb_event, function ($value) {
-                return !is_null($value) && $value !== '' && $value !== [];
+                return ! is_null($value) && $value !== '' && $value !== [];
             });
 
             // Construct the full Facebook API request body.
             $fb_body = [
-                'data' => [$fb_event],
-                'access_token' => $fb_token
+                'data'         => [$fb_event],
+                'access_token' => $fb_token,
             ];
 
             // Make the POST request to Facebook Conversions API.
             $fb_response = wp_remote_post("https://graph.facebook.com/v18.0/{$pixel_id}/events", [
-                'body' => json_encode($fb_body),
+                'body'    => json_encode($fb_body),
                 'headers' => ['Content-Type' => 'application/json'],
-                'timeout' => 10
+                'timeout' => 10,
             ]);
 
             // Handle Facebook API response.
@@ -190,7 +191,7 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
                 $errors['facebook'] = $fb_response->get_error_message();
             } else {
                 $fb_body_response = wp_remote_retrieve_body($fb_response);
-                $fb_decoded = json_decode($fb_body_response, true);
+                $fb_decoded       = json_decode($fb_body_response, true);
                 if (isset($fb_decoded['error'])) {
                     $errors['facebook'] = $fb_decoded['error']['message'] ?? json_encode($fb_decoded['error']);
                 } else {
@@ -201,14 +202,14 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
     }
 
     // === Forward to Google Ads API ===
-    if (!empty($params['gclid'])) {
+    if (! empty($params['gclid'])) {
         // Retrieve a fresh Google OAuth access token.
         $access_token = cf_get_fresh_google_access_token();
 
         // Check for errors in obtaining the access token or missing Google Ads credentials.
         if (is_wp_error($access_token)) {
             $errors['google_ads'] = $access_token->get_error_message();
-        } elseif (!$google_dev_token || !$google_cust_id || !$google_action_id) {
+        } elseif (! $google_dev_token || ! $google_cust_id || ! $google_action_id) {
             $errors['google_ads'] = 'Missing Google Ads API credentials (developer token, customer id, or conversion action id). Please configure them in the plugin settings.';
         } else {
             // Construct the Google Ads API URL.
@@ -216,29 +217,29 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
 
             // Construct the conversion object for Google Ads.
             $conversion = [
-                'conversion_action' => "customers/{$google_cust_id}/conversionActions/{$google_action_id}",
-                'conversion_date_time' => $current_time, // Event time in required format.
-                'gclid' => sanitize_text_field($params['gclid']), // Google Click Identifier.
-                'conversion_value' => isset($params['value']) ? floatval($params['value']) : 0, // Conversion value, default to 0.
-                'currency_code' => 'USD' // Default currency code. This could be made configurable if needed.
+                'conversion_action'    => "customers/{$google_cust_id}/conversionActions/{$google_action_id}",
+                'conversion_date_time' => $current_time,                                            // Event time in required format.
+                'gclid'                => sanitize_text_field($params['gclid']),                    // Google Click Identifier.
+                'conversion_value'     => isset($params['value']) ? floatval($params['value']) : 0, // Conversion value, default to 0.
+                'currency_code'        => 'USD',                                                    // Default currency code. This could be made configurable if needed.
             ];
 
             // Construct the full Google Ads API request body.
             $google_body = [
-                'customer_id' => $google_cust_id,
-                'conversions' => [$conversion], // Array of conversions.
-                'partial_failure' => false // Set to false to fail the entire request if any conversion fails.
+                'customer_id'     => $google_cust_id,
+                'conversions'     => [$conversion], // Array of conversions.
+                'partial_failure' => false,         // Set to false to fail the entire request if any conversion fails.
             ];
 
             // Make the POST request to Google Ads API.
             $google_response = wp_remote_post($google_url, [
                 'headers' => [
-                    'Authorization' => 'Bearer ' . $access_token,
-                    'Content-Type' => 'application/json',
-                    'developer-token' => $google_dev_token
+                    'Authorization'   => 'Bearer ' . $access_token,
+                    'Content-Type'    => 'application/json',
+                    'developer-token' => $google_dev_token,
                 ],
-                'body' => json_encode($google_body),
-                'timeout' => 10
+                'body'    => json_encode($google_body),
+                'timeout' => 10,
             ]);
 
             // Handle Google Ads API response.
@@ -246,7 +247,7 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
                 $errors['google_ads'] = $google_response->get_error_message();
             } else {
                 $google_body_response = wp_remote_retrieve_body($google_response);
-                $google_decoded = json_decode($google_body_response, true);
+                $google_decoded       = json_decode($google_body_response, true);
 
                 // Check for 'error' key in Google Ads response.
                 if (isset($google_decoded['error'])) {
@@ -259,22 +260,22 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
     }
 
     // === Final Response & Error Handling ===
-    if (!empty($errors)) {
+    if (! empty($errors)) {
         return new WP_REST_Response([
-            'status' => 'error',
+            'status'  => 'error',
             'message' => 'One or more errors occurred during conversion forwarding. Check the "errors" field for details.',
-            'errors' => $errors,
-            'log' => $log // Still show successful logs even if some errors occurred.
-        ], 400); // Return 400 Bad Request if there were errors.
+            'errors'  => $errors,
+            'log'     => $log, // Still show successful logs even if some errors occurred.
+        ], 400);           // Return 400 Bad Request if there were errors.
     }
 
     // === Save to Postback Log ===
     $entry = [
-        'time' => $current_time,
-        'ip' => cf_get_ip(),
-        'gclid' => sanitize_text_field($params['gclid'] ?? ''),
-        'fbclid' => sanitize_text_field($params['fbclid'] ?? ''),
-        'parameters' => $params // Store all incoming parameters for debugging.
+        'time'       => $current_time,
+        'ip'         => cf_get_ip(),
+        'gclid'      => sanitize_text_field($params['gclid'] ?? ''),
+        'fbclid'     => sanitize_text_field($params['fbclid'] ?? ''),
+        'parameters' => $params, // Store all incoming parameters for debugging.
     ];
 
     // Store the log entry in the postback log.
@@ -282,9 +283,9 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
 
     // Return successful response.
     return new WP_REST_Response([
-        'status' => 'completed',
+        'status'  => 'completed',
         'message' => 'Conversion successfully forwarded.',
-        'log' => $log
+        'log'     => $log,
     ], 200); // OK status.
 }
 
@@ -302,7 +303,7 @@ function cf_store_log_entry($entry)
     $stored_log = get_option('cf_postback_log');
 
     // If no log exists or it's not an array, initialize it.
-    if (!is_array($stored_log)) {
+    if (! is_array($stored_log)) {
         $stored_log = [];
     }
 
@@ -310,7 +311,7 @@ function cf_store_log_entry($entry)
     // Old logs were stored in a transient, but now we use an option.
     if (empty($stored_log)) {
         $stored_log = get_transient('cf_postback_log');
-        if (!is_array($stored_log)) {
+        if (! is_array($stored_log)) {
             $stored_log = [];
         }
     }
@@ -333,23 +334,21 @@ function cf_store_log_entry($entry)
  *
  * @return array The postback log entries, reversed to show the most recent first.
  */
-function cf_get_postback_log()
+function cf_get_postback_log($order = null)
 {
     // Retrieve the postback log from the option.
     $log_data = get_option('cf_postback_log');
 
     // If log data is not an array, initialize it.
-    if (!is_array($log_data)) {
+    if (! is_array($log_data)) {
         $log_data = [];
     }
-
-    print_r($log_data); // Debugging line to check the log data.
 
     // Fallback for older versions of the plugin.
     // Old logs were stored in a transient, but now we use an option.
     if (empty($log_data)) {
         $log_data = get_transient('cf_postback_log');
-        if (!is_array($log_data)) {
+        if (! is_array($log_data)) {
             $log_data = [];
         }
     }
@@ -370,14 +369,14 @@ function cf_get_postback_log()
 function cf_get_ip()
 {
     $headers = [
-        'HTTP_CF_CONNECTING_IP',    // Cloudflare specific header
-        'HTTP_CLIENT_IP',           // Often used by proxies
-        'HTTP_X_FORWARDED_FOR',     // Standard for proxies, can contain multiple IPs
-        'REMOTE_ADDR'               // The IP address of the server directly connecting
+        'HTTP_CF_CONNECTING_IP', // Cloudflare specific header
+        'HTTP_CLIENT_IP',        // Often used by proxies
+        'HTTP_X_FORWARDED_FOR',  // Standard for proxies, can contain multiple IPs
+        'REMOTE_ADDR',           // The IP address of the server directly connecting
     ];
 
     foreach ($headers as $key) {
-        if (!empty($_SERVER[$key])) {
+        if (! empty($_SERVER[$key])) {
             $ip = sanitize_text_field($_SERVER[$key]); // Sanitize the header value.
 
             // Handle multiple IPs in X-Forwarded-For (take the first valid one).
@@ -432,15 +431,15 @@ add_action('admin_init', function () {
  */
 function cf_settings_page()
 {
-    ?>
+?>
     <div class="wrap">
         <h1>Conversion Forwarder Settings</h1>
         <p>Configure the settings for forwarding conversions to Facebook and Google Ads.</p>
         <form method="post" action="options.php">
-            <?php settings_fields('cf_settings_group'); // Output hidden fields for settings group.
-    ?>
-            <?php do_settings_sections('cf_settings_group'); // Output registered settings sections.
-    ?>
+            <?php
+            settings_fields('cf_settings_group');
+            do_settings_sections('cf_settings_group');
+            ?>
 
             <h2>Facebook API Settings</h2>
             <p>Read the Facebook Conversions API <a href="https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/" target="_blank" rel="noreferrer noopener">documentation</a> for more information on the required parameters.</p>
@@ -507,7 +506,7 @@ function cf_settings_page()
             <p>Send your conversion data to the following endpoint:</p>
             <pre><code><?php echo esc_url(rest_url('convert/v1/forward')); ?></code></pre>
             <p>Example POST/GET data (JSON for POST, query parameters for GET):</p>
-<pre>
+            <pre>
 {
     "fbclid": "ABCD1234567890EFGHIJ",
     "gclid": "EAIaIQobABCD1234567890EFGHIJ",
@@ -530,72 +529,63 @@ function cf_settings_page()
 
         <h2>Recent Postbacks (Unique gclids/fbclids)</h2>
 
-    <?php
+        <?php
+        // Retrieve the transient log data.
+        $log_data = cf_get_postback_log();
 
-    // Retrieve the transient log data.
-    $log_data = get_transient('cf_postback_log');
+        if ($log_data && is_array($log_data)) {
+            $daily_fbclids = [];
+            $daily_gclids  = [];
 
-    // If log data is not an array, initialize it.
-    if (!is_array($log_data)) {
-        $log_data = [];
-    }
+            // Sanitize and filter out unwanted strings
+            $filter_strings = explode(',', get_option('cf_postback_filter', ''));
+            $filter_strings = array_map('trim', $filter_strings);
 
-    // Reverse the log data to show the most recent first.
-    $log_data = array_reverse($log_data);
+            foreach ($log_data as $i => $entry) {
+                $continue = true;
 
-    if ($log_data && is_array($log_data)) {
-        $daily_fbclids = [];
-        $daily_gclids = [];
+                // Check if any of the filter strings are present in the entry string.
+                $entry_string = json_encode($entry); // Convert entry to string for filtering.
+                foreach ($filter_strings as $filter) {
+                    if (strpos($entry_string, $filter) !== false) {
+                        unset($log_data[$i]); // Remove the entry if it contains any filter string.
+                        $continue = false;    // If any filter string is found, skip this entry.
+                    }
+                }
 
-        // Sanitize and filter out unwanted strings
-        $filter_strings = explode(',', get_option('cf_postback_filter', ''));
-        $filter_strings = array_map('trim', $filter_strings);
+                // Skip this entry if it contains any filter string.
+                if (! $continue) {
+                    continue;
+                }
 
-        foreach ($log_data as $i => $entry) {
-            $continue = true;
+                $day = substr($entry['time'], 0, 10);
 
-            // Check if any of the filter strings are present in the entry string.
-            $entry_string = json_encode($entry); // Convert entry to string for filtering.
-            foreach ($filter_strings as $filter) {
-                if (strpos($entry_string, $filter) !== false) {
-                    unset($log_data[$i]); // Remove the entry if it contains any filter string.
-                    $continue = false; // If any filter string is found, skip this entry.
+                if (! isset($daily_fbclids[$day])) {
+                    $daily_fbclids[$day] = [];
+                }
+                if (! isset($daily_gclids[$day])) {
+                    $daily_gclids[$day] = [];
+                }
+
+                if (! empty($entry['fbclid'])) {
+                    $daily_fbclids[$day][$entry['fbclid']] = true;
+                }
+                if (! empty($entry['gclid'])) {
+                    $daily_gclids[$day][$entry['gclid']] = true;
                 }
             }
 
-            // Skip this entry if it contains any filter string.
-            if (!$continue) {
-                continue;
+            $all_days = array_unique(array_merge(array_keys($daily_fbclids), array_keys($daily_gclids)));
+            sort($all_days);
+
+            $labels      = $all_days;
+            $data_fb     = [];
+            $data_google = [];
+
+            foreach ($all_days as $day) {
+                $data_fb[]     = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
+                $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
             }
-
-            $day = substr($entry['time'], 0, 10);
-
-            if (!isset($daily_fbclids[$day])) {
-                $daily_fbclids[$day] = [];
-            }
-            if (!isset($daily_gclids[$day])) {
-                $daily_gclids[$day] = [];
-            }
-
-            if (!empty($entry['fbclid'])) {
-                $daily_fbclids[$day][$entry['fbclid']] = true;
-            }
-            if (!empty($entry['gclid'])) {
-                $daily_gclids[$day][$entry['gclid']] = true;
-            }
-        }
-
-        $all_days = array_unique(array_merge(array_keys($daily_fbclids), array_keys($daily_gclids)));
-        sort($all_days);
-
-        $labels = $all_days;
-        $data_fb = [];
-        $data_google = [];
-
-        foreach ($all_days as $day) {
-            $data_fb[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
-            $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
-        }
         ?>
             <div style="width:100%; height:300px; margin-bottom:20px;">
                 <canvas id="cfPostbackChart"></canvas>
@@ -665,18 +655,18 @@ function cf_settings_page()
             <h2 id="recent-postbacks">Recent Postbacks (Log)</h2>
 
             <?php
-                $pagination = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
-        $items_per_page = 100; // Number of items to display per page.
+            $pagination     = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
+            $items_per_page = 100;                                                  // Number of items to display per page.
 
-        // Paginate the log data.
-        $total_items = count($log_data);
-        $total_pages = ceil($total_items / $items_per_page);
-        $offset = ($pagination - 1) * $items_per_page;
-        $log_data = array_slice($log_data, $offset, $items_per_page);
-        ?>
+            // Paginate the log data.
+            $total_items = count($log_data);
+            $total_pages = ceil($total_items / $items_per_page);
+            $offset      = ($pagination - 1) * $items_per_page;
+            $log_data    = array_slice($log_data, $offset, $items_per_page);
+            ?>
 
-            <p>Displaying the most recent <?php echo $items_per_page; ?> postbacks. Total: <?php echo $total_items; ?>.</p>
-            
+            <p>Displaying the most recent <?php echo $items_per_page; ?> postbacks. Total:<?php echo $total_items; ?>.</p>
+
             <table class="widefat fixed striped">
                 <thead>
                     <tr>
@@ -688,8 +678,8 @@ function cf_settings_page()
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach (array_reverse($log_data) as $entry) { // Display in reverse chronological order.
-                        ?>
+                    <?php foreach ($log_data as $entry) {
+                    ?>
                         <tr>
                             <td><?php echo esc_html($entry['time']); ?></td>
                             <td><?php echo esc_html($entry['ip']); ?></td>
@@ -702,9 +692,15 @@ function cf_settings_page()
             </table>
 
             <?php
-                // Display pagination links.
-                if ($total_pages > 1) {
-                    echo '<div class="tablenav"><div class="tablenav-pages">';
+            // Display pagination links.
+            if ($total_pages > 1) {
+                echo '<div class="tablenav" style="text-align: center;">';
+
+                $window      = 10; // how many pages to show around the current
+                $max_visible = 30; // threshold for collapsing
+
+                // Show all pages if within max_visible limit
+                if ($total_pages <= $max_visible) {
                     for ($i = 1; $i <= $total_pages; $i++) {
                         if ($i === $pagination) {
                             echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
@@ -712,14 +708,55 @@ function cf_settings_page()
                             echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
                         }
                     }
-                    echo '</div></div>';
                 }
-        ?>
+                // Show a moving window of pages
+                else {
+                    // Always show first page
+                    if ($pagination == 1) {
+                        echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">1</span>';
+                    } else {
+                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=1#recent-postbacks" style="margin-left: 5px;">1</a>';
+                    }
+
+                    // Add "..." if current is far from start
+                    if ($pagination > ($window + 2)) {
+                        echo '<span style="margin-left: 5px;">...</span>';
+                    }
+
+                    // Middle pages around current
+                    $start = max(2, $pagination - $window);
+                    $end   = min($total_pages - 1, $pagination + $window);
+
+                    for ($i = $start; $i <= $end; $i++) {
+                        if ($i === $pagination) {
+                            echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
+                        } else {
+                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
+                        }
+                    }
+
+                    // Add "..." if current is far from end
+                    if ($pagination < $total_pages - ($window + 1)) {
+                        echo '<span style="margin-left: 5px;">...</span>';
+                    }
+
+                    // Always show last page
+                    if ($pagination == $total_pages) {
+                        echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $total_pages . '</span>';
+                    } else {
+                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $total_pages . '#recent-postbacks" style="margin-left: 5px;">' . $total_pages . '</a>';
+                    }
+                }
+
+                echo '</div>';
+            }
+            ?>
+
         <?php
-    } else {
-        echo '<p>No postbacks received yet.</p>';
-    }
-    ?>
+        } else {
+            echo '<p>No postbacks received yet.</p>';
+        }
+        ?>
 
     </div>
 <?php
