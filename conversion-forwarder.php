@@ -343,6 +343,8 @@ function cf_get_postback_log()
         $log_data = [];
     }
 
+    print_r($log_data); // Debugging line to check the log data.
+
     // Fallback for older versions of the plugin.
     // Old logs were stored in a transient, but now we use an option.
     if (empty($log_data)) {
