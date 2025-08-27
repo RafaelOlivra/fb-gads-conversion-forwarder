@@ -654,33 +654,37 @@ function cf_settings_page()
 
             <h2 id="recent-postbacks">Recent Postbacks (Log)</h2>
 
-            <?php
+            <div class="cf-row" style="display: grid; grid-template-columns: 1fr 1fr;">
+                <div class="row">
+                    <?php
 
-            $search_query   = isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
-            $pagination     = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
+                    $search_query   = isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
+                    $pagination     = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
 
-            // Allow to search within the log data.
-            if (!empty($search_query)) {
-                $keep = [];
-                for ($i = 0; $i < count($log_data); $i++) {
-                    if (stripos($log_data[$i]['ip'], $search_query) !== false ||
-                        stripos($log_data[$i]['fbclid'], $search_query) !== false ||
-                        stripos($log_data[$i]['gclid'], $search_query) !== false ||
-                        stripos(json_encode($log_data[$i]['parameters']), $search_query) !== false
-                    ) {
-                        $keep[] = $log_data[$i];
+                    // Allow to search within the log data.
+                    if (!empty($search_query)) {
+                        $keep = [];
+                        for ($i = 0; $i < count($log_data); $i++) {
+                            if (stripos($log_data[$i]['ip'], $search_query) !== false ||
+                                stripos($log_data[$i]['fbclid'], $search_query) !== false ||
+                                stripos($log_data[$i]['gclid'], $search_query) !== false ||
+                                stripos(json_encode($log_data[$i]['parameters']), $search_query) !== false
+                            ) {
+                                $keep[] = $log_data[$i];
+                            }
+                        }
+                        $log_data = $keep;
                     }
-                }
-                $log_data = $keep;
-            }
-            ?>
+                    ?>
 
-            <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>">
-                <input type="hidden" name="page" value="conversion_forwarder" />
-                <input type="hidden" name="pbpage" value="<?php echo esc_attr($pagination); ?>" />
-                <input type="text" name="search" value="<?php echo esc_attr($search_query); ?>" placeholder="Search..." />
-                <input type="submit" value="Search" class="button" />
-            </form>
+                    <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>">
+                        <input type="hidden" name="page" value="conversion_forwarder" />
+                        <input type="hidden" name="pbpage" value="<?php echo esc_attr($pagination); ?>" />
+                        <input type="text" name="search" value="<?php echo esc_attr($search_query); ?>" placeholder="Search..." />
+                        <input type="submit" value="Search" class="button" />
+                    </form>
+                </div>
+            </div>
 
             <?php
             $items_per_page = 100;
