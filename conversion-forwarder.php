@@ -375,6 +375,30 @@ function cf_sort_logs_by_date($logs)
 }
 
 /**
+ * Prints a formatted view of the parameters for easier visualization.
+ *
+ * @param array $params The parameters to print.
+ */
+function cf_print_parameters($params)
+{
+    $output = '<div class="cf-parameters">';
+    // Print a nice view for a single hierarchical JSON structure.
+    // So { prop : value } will be <p><strong></strong>prop</strong>: value</p>
+    // Value will be a <pre></pre> block for better readability.
+    foreach ($params as $key => $value) {
+        if (is_bool($value)) {
+            $output .= '<p><strong>' . esc_html($key) . '</strong>: ' . ($value == true ? 'true' : 'false') . '</p>';
+        } else if (is_array($value) || is_object($value)) {
+            $output .= '<p><strong>' . esc_html($key) . '</strong>: <pre>' . esc_html(json_encode($value, JSON_PRETTY_PRINT)) . '</pre></p>';
+        } else {
+            $output .= '<p><strong>' . esc_html($key) . '</strong>: <span>' . esc_html($value) . '</span></p>';
+        }
+    }
+
+    echo $output . '</div>';
+}
+
+/**
  * Retrieves the client's IP address from various common headers.
  * Prioritizes headers that are likely to contain the real client IP (e.g., Cloudflare).
  *
@@ -445,7 +469,22 @@ add_action('admin_init', function () {
  */
 function cf_settings_page()
 {
-    ?>
+?>
+    <style>
+        .cf-parameters {
+            max-height: 150px;
+            overflow: auto;
+        }
+
+        .cf-parameters p {
+            margin-bottom: 0 !important;
+            white-space: nowrap;
+        }
+
+        .cf-parameters span {
+            white-space: nowrap;
+        }
+    </style>
     <div class="wrap">
         <h1>Conversion Forwarder Settings</h1>
         <p>Configure the settings for forwarding conversions to Facebook and Google Ads.</p>
@@ -538,22 +577,22 @@ function cf_settings_page()
             <pre><code><?php echo esc_url(rest_url('convert/v1/forward')); ?></code></pre>
             <p>Example POST/GET data (JSON for POST, query parameters for GET):</p>
             <pre>
-                {
-                    "fbclid": "ABCD1234567890EFGHIJ",
-                    "gclid": "EAIaIQobABCD1234567890EFGHIJ",
-                    "value": 50.00,
-                    "event_name": "Purchase",
-                    "email": "test@example.com",
-                    "phone": "+1234567890",
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "city": "Anytown",
-                    "state": "CA",
-                    "country": "US",
-                    "zip": "90210",
-                    "external_id": "user123"
-                }
-                </pre>
+                    {
+                        "fbclid": "ABCD1234567890EFGHIJ",
+                        "gclid": "EAIaIQobABCD1234567890EFGHIJ",
+                        "value": 50.00,
+                        "event_name": "Purchase",
+                        "email": "test@example.com",
+                        "phone": "+1234567890",
+                        "first_name": "John",
+                        "last_name": "Doe",
+                        "city": "Anytown",
+                        "state": "CA",
+                        "country": "US",
+                        "zip": "90210",
+                        "external_id": "user123"
+                    }
+                    </pre>
         </form>
 
         <hr>
@@ -617,13 +656,13 @@ function cf_settings_page()
                 $data_fb[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
                 $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
             }
-            ?>
+        ?>
             <div style="width:100%; height:300px; margin-bottom:20px;">
                 <canvas id="cfPostbackChart"></canvas>
             </div>
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <script>
-                document.addEventListener('DOMContentLoaded', function () {
+                document.addEventListener('DOMContentLoaded', function() {
                     const ctx = document.getElementById('cfPostbackChart');
                     if (ctx) { // Ensure canvas element exists
                         new Chart(ctx.getContext('2d'), {
@@ -631,19 +670,19 @@ function cf_settings_page()
                             data: {
                                 labels: <?php echo json_encode($labels); ?>,
                                 datasets: [{
-                                    label: 'Facebook (fbclid)',
-                                    data: <?php echo json_encode($data_fb); ?>,
-                                    backgroundColor: '#3b5998',
-                                    borderColor: '#3b5998',
-                                    borderWidth: 1
-                                },
-                                {
-                                    label: 'Google (gclid)',
-                                    data: <?php echo json_encode($data_google); ?>,
-                                    backgroundColor: '#34a853',
-                                    borderColor: '#34a853',
-                                    borderWidth: 1
-                                }
+                                        label: 'Facebook (fbclid)',
+                                        data: <?php echo json_encode($data_fb); ?>,
+                                        backgroundColor: '#3b5998',
+                                        borderColor: '#3b5998',
+                                        borderWidth: 1
+                                    },
+                                    {
+                                        label: 'Google (gclid)',
+                                        data: <?php echo json_encode($data_google); ?>,
+                                        backgroundColor: '#34a853',
+                                        borderColor: '#34a853',
+                                        borderWidth: 1
+                                    }
                                 ]
                             },
                             options: {
@@ -691,7 +730,7 @@ function cf_settings_page()
 
                     $search_query = isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
                     $pagination = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
-            
+
                     // Allow to search within the log data.
                     if (!empty($search_query)) {
                         $keep = [];
@@ -721,8 +760,8 @@ function cf_settings_page()
                 <?php
                 // Allow external plugins to match logs by providing a list of ips they want to match
                 // The IPs should be sent as an array
-                $ips_sources = apply_filters('conversion_forwarder_ips_sources', []);
-                $ips_to_match = apply_filters('conversion_forwarder_ips_to_match', []);
+                $ips_sources = array_unique(apply_filters('conversion_forwarder_ips_sources', []));
+                $ips_to_match = array_unique(apply_filters('conversion_forwarder_ips_to_match', []));
 
                 if (!empty($ips_sources) && is_array($ips_sources)) {
                     $is_filter_active = !empty($_GET['filter_ips_by_sources']) && $_GET['filter_ips_by_sources'];
@@ -737,13 +776,14 @@ function cf_settings_page()
                         $filter_by_ip_url = remove_query_arg('filter_ips_by_sources', $filter_by_ip_url);
                         $filter_by_ip_url = remove_query_arg('pbpage', $filter_by_ip_url);
                     }
-                    ?>
+                ?>
                     <div class="row">
                         <a href="<?php echo esc_url_raw($filter_by_ip_url) ?>" class="button"><?php echo $btn_text; ?></a>
                         <p style="margin-top: 3px; font-size: 10px;"><?php echo $sources; ?> - Total of
-                            <?php echo count($ips_to_match); ?> IPs.</p>
+                            <?php echo count($ips_to_match); ?> IPs.
+                        </p>
                     </div>
-                    <?php
+                <?php
 
                     // Filter logs by IP sources
                     if (!empty($_GET['filter_ips_by_sources'])) {
@@ -795,13 +835,13 @@ function cf_settings_page()
                 </thead>
                 <tbody>
                     <?php foreach ($log_data as $entry) {
-                        ?>
+                    ?>
                         <tr>
                             <td><?php echo esc_html($entry['time']); ?></td>
                             <td><?php echo esc_html($entry['ip']); ?></td>
                             <td><?php echo esc_html($entry['fbclid']); ?></td>
                             <td><?php echo esc_html($entry['gclid']); ?></td>
-                            <td><?php echo esc_html(json_encode($entry['parameters'])); ?></td>
+                            <td><?php echo cf_print_parameters($entry['parameters']); ?></td>
                         </tr>
                     <?php } ?>
                 </tbody>
@@ -814,7 +854,7 @@ function cf_settings_page()
 
                 $window = 10; // how many pages to show around the current
                 $max_visible = 30; // threshold for collapsing
-    
+
                 // Show all pages if within max_visible limit
                 if ($total_pages <= $max_visible) {
                     for ($i = 1; $i <= $total_pages; $i++) {
@@ -868,14 +908,14 @@ function cf_settings_page()
             }
             ?>
 
-            <?php
+        <?php
         } else {
             echo '<p>No postbacks received yet.</p>';
         }
         ?>
 
     </div>
-    <?php
+<?php
 }
 
 /**
