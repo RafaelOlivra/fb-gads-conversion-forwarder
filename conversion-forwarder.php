@@ -334,7 +334,7 @@ function cf_store_log_entry($entry)
  *
  * @return array The postback log entries, reversed to show the most recent first.
  */
-function cf_get_postback_log($order = null)
+function cf_get_postback_log()
 {
     // Retrieve the postback log from the option.
     $log_data = get_option('cf_postback_log');
@@ -358,6 +358,20 @@ function cf_get_postback_log($order = null)
 
     // Return the log data.
     return $log_data;
+}
+
+/**
+ * Sorts log entries by date in descending order.
+ *
+ * @param array $logs The log entries to sort.
+ * @return array The sorted log entries.
+ */
+function cf_sort_logs_by_date($logs)
+{
+    usort($logs, function ($a, $b) {
+        return strtotime($b['time']) - strtotime($a['time']);
+    });
+    return $logs;
 }
 
 /**
@@ -691,7 +705,7 @@ function cf_settings_page()
                                 $keep[] = $log_data[$i];
                             }
                         }
-                        $log_data = $keep;
+                        $log_data = cf_sort_logs_by_date($keep);
                     }
                     ?>
 
@@ -744,7 +758,7 @@ function cf_settings_page()
                                 }
                             }
                         }
-                        $log_data = $keep;
+                        $log_data = cf_sort_logs_by_date($keep);
                     }
                 }
                 ?>
