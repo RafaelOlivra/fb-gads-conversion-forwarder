@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Conversion Forwarder
  * Description: Forwards incoming conversion postbacks to Facebook Conversions API and Google Ads API.
- * Version: 1.1
+ * Version: 1.0
  * Author: RO
  */
 
@@ -292,97 +292,72 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
 // === Utils ===
 
 /**
- * Stores a log entry in the postback log using a multi-option approach for scalability,
- * with a fallback for old log data.
+ * Stores a log entry in the postback log transient.
+ * This function is used to keep track of successful postbacks for debugging and monitoring.
  *
- * @param array $entry The log entry to store.
+ * @param array $entry The log entry to store, should include 'time', 'ip', 'gclid', 'fbclid', and 'parameters'.
  */
-function cf_store_log_entry($entry) {
-    // Define the maximum number of entries per option.
-    $max_entries_per_option = 5000;
+function cf_store_log_entry($entry)
+{
+    // Retrieve existing log entries from option.
+    $stored_log = get_option('cf_postback_log');
 
-    // Retrieve the log storage map.
-    $storage_map = get_option('cf_postback_log_storage_map', null);
+    // If no log exists or it's not an array, initialize it.
+    if (!is_array($stored_log)) {
+        $stored_log = [];
+    }
 
-    // --- Compatibility Check and Migration ---
-    // If the new map is not set, check for old logs and migrate them.
-    if ($storage_map === null) {
-        $old_log = get_option('cf_postback_log', []);
-        $new_log_key = 'cf_postback_log_1';
-        $storage_map = [$new_log_key];
-
-        // If old log exists, transfer its data to the new first option.
-        if (!empty($old_log)) {
-            update_option($new_log_key, $old_log);
-            // Optional: delete the old log option to save space.
-            // delete_option('cf_postback_log');
+    // Fallback for older versions of the plugin.
+    // Old logs were stored in a transient, but now we use an option.
+    if (empty($stored_log)) {
+        $stored_log = get_transient('cf_postback_log');
+        if (!is_array($stored_log)) {
+            $stored_log = [];
         }
-
-        // Save the new storage map.
-        update_option('cf_postback_log_storage_map', $storage_map);
     }
 
-    // Get the name of the latest log option.
-    $latest_log_key = end($storage_map);
-
-    // Retrieve the latest log data.
-    $stored_log = get_option($latest_log_key, []);
-
-    // If the latest option is full, create a new one.
-    if (count($stored_log) >= $max_entries_per_option) {
-        $new_log_count = count($storage_map) + 1;
-        $new_log_key = 'cf_postback_log_' . $new_log_count;
-        $stored_log = []; // Start a new log.
-        $storage_map[] = $new_log_key;
-        update_option('cf_postback_log_storage_map', $storage_map);
-        $latest_log_key = $new_log_key;
-    }
-
-    // Add the new entry to the current log.
+    // Add the new entry to the log.
     $stored_log[] = $entry;
 
-    // Save the updated log back to the correct option.
-    update_option($latest_log_key, $stored_log);
+    // Limit the log to the last 500000 entries (or any other reasonable limit).
+    if (count($stored_log) > 500000) {
+        $stored_log = array_slice($stored_log, -500000);
+    }
+
+    // Save the updated log back to the option.
+    update_option('cf_postback_log', $stored_log);
 }
 
-
 /**
- * Retrieves the postback log from all options and handles pagination,
- * with a fallback for old log data.
+ * Retrieves the postback log from the transient.
+ * This function is used to display the log entries on the admin settings page.
  *
- * @param int $page The page number to retrieve.
- * @param int $items_per_page The number of items per page.
- * @return array An array containing log data and pagination info.
+ * @return array The postback log entries, reversed to show the most recent first.
  */
-function cf_get_postback_log($page = 1, $items_per_page = 100) {
-    $storage_map = get_option('cf_postback_log_storage_map', null);
-    $all_logs = [];
+function cf_get_postback_log()
+{
+    // Retrieve the postback log from the option.
+    $log_data = get_option('cf_postback_log');
 
-    // --- Compatibility Check and Fallback ---
-    // If the new map doesn't exist, retrieve data from the old single option.
-    if ($storage_map === null) {
-        $all_logs = get_option('cf_postback_log', []);
-    } else {
-        // Otherwise, retrieve data from all log options in the map.
-        foreach ($storage_map as $log_key) {
-            $log_data = get_option($log_key, []);
-            $all_logs = array_merge($all_logs, $log_data);
+    // If log data is not an array, initialize it.
+    if (!is_array($log_data)) {
+        $log_data = [];
+    }
+
+    // Fallback for older versions of the plugin.
+    // Old logs were stored in a transient, but now we use an option.
+    if (empty($log_data)) {
+        $log_data = get_transient('cf_postback_log');
+        if (!is_array($log_data)) {
+            $log_data = [];
         }
     }
 
-    // Sort the combined log data.
-    $all_logs = cf_sort_logs_by_date($all_logs);
+    // Reverse the log data to show the most recent first.
+    $log_data = array_reverse($log_data);
 
-    // Apply pagination.
-    $total_items = count($all_logs);
-    $offset = ($page - 1) * $items_per_page;
-    $paginated_logs = array_slice($all_logs, $offset, $items_per_page);
-
-    return [
-        'logs' => $paginated_logs,
-        'total_items' => $total_items,
-        'total_pages' => ceil($total_items / $items_per_page),
-    ];
+    // Return the log data.
+    return $log_data;
 }
 
 /**
@@ -396,6 +371,38 @@ function cf_sort_logs_by_date($logs)
     usort($logs, function ($a, $b) {
         return strtotime($b['time']) - strtotime($a['time']);
     });
+    return $logs;
+}
+
+/**
+ * Filters log entries based on a search term.
+ * The search term is matched against the 'ip', 'fbclid', 'gclid', and 'parameters' fields.
+ *
+ * @param array $logs The log entries to filter.
+ * @param string $search_term The term to search for within the log entries.
+ * @return array The filtered log entries that match the search term.
+ */
+function cf_search_logs($logs, $search_term) {
+
+    $search_term = trim(sanitize_text_field($search_term));
+    // Remove scaping bars like \"would_match\":true
+    $search_term = str_replace(['\"', '\"'], ['"', '"'], $search_term);
+
+    if (!empty($search_term)) {
+        $keep = [];
+        for ($i = 0; $i < count($logs); $i++) {
+            if (
+                stripos($logs[$i]['ip'], $search_term) !== false ||
+                stripos($logs[$i]['fbclid'], $search_term) !== false ||
+                stripos($logs[$i]['gclid'], $search_term) !== false ||
+                stripos(json_encode($logs[$i]['parameters']), $search_term) !== false
+            ) {
+                $keep[] = $logs[$i];
+            }
+        }
+            $logs = cf_sort_logs_by_date($keep);
+        }
+
     return $logs;
 }
 
@@ -462,6 +469,101 @@ function cf_get_ip()
 
     return 'unknown'; // Return 'unknown' if no valid IP is found.
 }
+
+/**
+ * Check if we are on the plugin's admin page.
+ *
+ * @return bool True if on the plugin's admin page, false otherwise.
+ */
+function cf_is_admin_page() {
+    if (isset($_GET['page']) && $_GET['page'] === 'conversion_forwarder') {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Retrieves the current pagination number from the query parameters.
+ *
+ * @return int The current pagination number.
+ */
+function cf_get_current_pagination() {
+    $pagination = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
+    return $pagination;
+}
+
+/**
+ * Retrieves the current search query from the query parameters.
+ *
+ * @return string The current search query.
+ */
+function cf_get_search_query() {
+    return isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
+}
+
+// === Data Export ===
+
+/**
+ * Handle email export action
+ */
+function cf_export_emails() {
+    // Check user permissions
+    if (!current_user_can('manage_options')) {
+        wp_die(__('You do not have sufficient permissions to access this page.'));
+    }
+
+    // Allow filtering the logs a search parameter
+    $search_query = cf_get_search_query(); // Get current search query.
+    $log_data = cf_get_postback_log();
+    if (!empty($search_query)) {
+        $log_data = cf_search_logs($log_data, $search_query);
+    }
+
+    // Get the email addresses from the database
+    $emails = [];
+    foreach ($log_data as $entry) {
+        // Look for email in parameters
+        if (isset($entry['parameters']['email'])) {
+            $emails[] = sanitize_email($entry['parameters']['email']);
+        }
+        // Also check for 'em' parameter which might be an array of emails
+        else if (isset($entry['parameters']['em']) && is_array($entry['parameters']['em'])) {
+            foreach ($entry['parameters']['em'] as $email) {
+                $emails[] = sanitize_email($email);
+            }
+        }
+        // Attempt to extract an email from any other parameter
+        else {
+            $param_string = json_encode($entry['parameters']);
+            if (preg_match_all('/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/', $param_string, $matches)) {
+                foreach ($matches[0] as $email) {
+                    $emails[] = sanitize_email($email);
+                }
+            }
+        }
+    }
+
+    // Remove duplicates and empty values
+    $emails = array_unique(array_filter($emails));
+    sort($emails);
+
+    // Prepare CSV content
+    $csv_content = "Email\n" . implode("\n", $emails);
+    $filename = 'exported_emails_' . date('Y-m-d_H-i-s') . '.csv';
+
+    // Send headers to prompt file download
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    echo $csv_content;
+    exit;
+}
+add_action('admin_init', function() {
+    if ( cf_is_admin_page() && isset($_GET['action']) && $_GET['action'] === 'export_emails') {
+        cf_export_emails();
+    }
+});
 
 // === Admin Settings Page ===
 // Add an options page under the 'Settings' menu in the WordPress admin.
@@ -625,17 +727,10 @@ function cf_settings_page()
         <h2>Recent Postbacks (Unique gclids/fbclids)</h2>
 
         <?php
-        // Get pagination and items per page
-        $pagination = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
-        $items_per_page = 100;
-        
-        // Retrieve and paginate the log data.
-        $log_result = cf_get_postback_log($pagination, $items_per_page);
-        $log_data = $log_result['logs'];
-        $total_items = $log_result['total_items'];
-        $total_pages = $log_result['total_pages'];
+        // Retrieve the transient log data.
+        $log_data = cf_get_postback_log();
 
-        if (!empty($log_data)) {
+        if ($log_data && is_array($log_data)) {
             $daily_fbclids = [];
             $daily_gclids = [];
 
@@ -756,26 +851,16 @@ function cf_settings_page()
 
             <h2 id="recent-postbacks">Recent Postbacks (Log)</h2>
 
-            <div class="cf-row" style="display: grid; grid-template-columns: 1fr 1fr;">
+            <div class="cf-row" style="display: flex;grid-template-columns: 1fr 1fr;justify-content: space-between;">
                 <div class="row">
                     <?php
 
-                    $search_query = isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
-                    
+                    $search_query = cf_get_search_query(); // Get current search query.
+                    $pagination = cf_get_current_pagination(); // Get current page number.
+
                     // Allow to search within the log data.
                     if (!empty($search_query)) {
-                        $keep = [];
-                        for ($i = 0; $i < count($log_data); $i++) {
-                            if (
-                                stripos($log_data[$i]['ip'], $search_query) !== false ||
-                                stripos($log_data[$i]['fbclid'], $search_query) !== false ||
-                                stripos($log_data[$i]['gclid'], $search_query) !== false ||
-                                stripos(json_encode($log_data[$i]['parameters']), $search_query) !== false
-                            ) {
-                                $keep[] = $log_data[$i];
-                            }
-                        }
-                        $log_data = cf_sort_logs_by_date($keep);
+                        $log_data = cf_search_logs($log_data, $search_query);
                     }
                     ?>
 
@@ -788,6 +873,10 @@ function cf_settings_page()
                     </form>
                 </div>
 
+                <div class="row">
+                    <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_emails&search=' . $search_query)) ?>" class="button"><?php echo __('Export Emails') ?></a>
+                    <p style="margin-top: 3px; font-size: 10px;">Search query will be applied to the exported emails.</p>
+                </div>
                 <?php
                 // Allow external plugins to match logs by providing a list of ips they want to match
                 // The IPs should be sent as an array
@@ -819,6 +908,7 @@ function cf_settings_page()
                     // Filter logs by IP sources
                     if (!empty($_GET['filter_ips_by_sources'])) {
                         $keep = [];
+
                         // Optimize: create a hash map for quick IP lookups
                         $ips_to_match_map = array_flip($ips_to_match);
 
@@ -829,11 +919,23 @@ function cf_settings_page()
                                 $keep[] = $entry;
                             }
                         }
+
                         $log_data = cf_sort_logs_by_date($keep);
                     }
                 }
                 ?>
             </div>
+
+            <?php
+            $items_per_page = 100;
+
+            // Paginate the log data.
+            $total_items = count($log_data);
+            $total_pages = ceil($total_items / $items_per_page);
+            $offset = ($pagination - 1) * $items_per_page;
+
+            $log_data = array_slice($log_data, $offset, $items_per_page);
+            ?>
 
             <?php if ($total_items > 0) { ?>
                 <p>Displaying page <?php echo $pagination; ?> of <?php echo $total_pages; ?>. Total postbacks:
@@ -941,13 +1043,8 @@ function cf_settings_page()
 /**
  * Register deactivation hook to clean up plugin transients.
  */
-function cf_deactivate() {
-    $storage_map = get_option('cf_postback_log_storage_map', []);
-    foreach ($storage_map as $log_key) {
-        delete_option($log_key);
-    }
-    delete_option('cf_postback_log_storage_map');
-    // Ensure the old option is also cleaned up.
-    delete_option('cf_postback_log');
+function cf_deactivate()
+{
+    delete_transient('cf_postback_log');
 }
 register_deactivation_hook(__FILE__, 'cf_deactivate');
