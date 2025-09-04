@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Conversion Forwarder
  * Description: Forwards incoming conversion postbacks to Facebook Conversions API and Google Ads API.
- * Version: 1.0
+ * Version: 1.1
  * Author: RO
  */
 
@@ -292,72 +292,97 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
 // === Utils ===
 
 /**
- * Stores a log entry in the postback log transient.
- * This function is used to keep track of successful postbacks for debugging and monitoring.
+ * Stores a log entry in the postback log using a multi-option approach for scalability,
+ * with a fallback for old log data.
  *
- * @param array $entry The log entry to store, should include 'time', 'ip', 'gclid', 'fbclid', and 'parameters'.
+ * @param array $entry The log entry to store.
  */
-function cf_store_log_entry($entry)
-{
-    // Retrieve existing log entries from option.
-    $stored_log = get_option('cf_postback_log');
+function cf_store_log_entry($entry) {
+    // Define the maximum number of entries per option.
+    $max_entries_per_option = 5000;
 
-    // If no log exists or it's not an array, initialize it.
-    if (!is_array($stored_log)) {
-        $stored_log = [];
-    }
+    // Retrieve the log storage map.
+    $storage_map = get_option('cf_postback_log_storage_map', null);
 
-    // Fallback for older versions of the plugin.
-    // Old logs were stored in a transient, but now we use an option.
-    if (empty($stored_log)) {
-        $stored_log = get_transient('cf_postback_log');
-        if (!is_array($stored_log)) {
-            $stored_log = [];
+    // --- Compatibility Check and Migration ---
+    // If the new map is not set, check for old logs and migrate them.
+    if ($storage_map === null) {
+        $old_log = get_option('cf_postback_log', []);
+        $new_log_key = 'cf_postback_log_1';
+        $storage_map = [$new_log_key];
+
+        // If old log exists, transfer its data to the new first option.
+        if (!empty($old_log)) {
+            update_option($new_log_key, $old_log);
+            // Optional: delete the old log option to save space.
+            // delete_option('cf_postback_log');
         }
+
+        // Save the new storage map.
+        update_option('cf_postback_log_storage_map', $storage_map);
     }
 
-    // Add the new entry to the log.
+    // Get the name of the latest log option.
+    $latest_log_key = end($storage_map);
+
+    // Retrieve the latest log data.
+    $stored_log = get_option($latest_log_key, []);
+
+    // If the latest option is full, create a new one.
+    if (count($stored_log) >= $max_entries_per_option) {
+        $new_log_count = count($storage_map) + 1;
+        $new_log_key = 'cf_postback_log_' . $new_log_count;
+        $stored_log = []; // Start a new log.
+        $storage_map[] = $new_log_key;
+        update_option('cf_postback_log_storage_map', $storage_map);
+        $latest_log_key = $new_log_key;
+    }
+
+    // Add the new entry to the current log.
     $stored_log[] = $entry;
 
-    // Limit the log to the last 500000 entries (or any other reasonable limit).
-    if (count($stored_log) > 500000) {
-        $stored_log = array_slice($stored_log, -500000);
-    }
-
-    // Save the updated log back to the option.
-    update_option('cf_postback_log', $stored_log);
+    // Save the updated log back to the correct option.
+    update_option($latest_log_key, $stored_log);
 }
 
+
 /**
- * Retrieves the postback log from the transient.
- * This function is used to display the log entries on the admin settings page.
+ * Retrieves the postback log from all options and handles pagination,
+ * with a fallback for old log data.
  *
- * @return array The postback log entries, reversed to show the most recent first.
+ * @param int $page The page number to retrieve.
+ * @param int $items_per_page The number of items per page.
+ * @return array An array containing log data and pagination info.
  */
-function cf_get_postback_log()
-{
-    // Retrieve the postback log from the option.
-    $log_data = get_option('cf_postback_log');
+function cf_get_postback_log($page = 1, $items_per_page = 100) {
+    $storage_map = get_option('cf_postback_log_storage_map', null);
+    $all_logs = [];
 
-    // If log data is not an array, initialize it.
-    if (!is_array($log_data)) {
-        $log_data = [];
-    }
-
-    // Fallback for older versions of the plugin.
-    // Old logs were stored in a transient, but now we use an option.
-    if (empty($log_data)) {
-        $log_data = get_transient('cf_postback_log');
-        if (!is_array($log_data)) {
-            $log_data = [];
+    // --- Compatibility Check and Fallback ---
+    // If the new map doesn't exist, retrieve data from the old single option.
+    if ($storage_map === null) {
+        $all_logs = get_option('cf_postback_log', []);
+    } else {
+        // Otherwise, retrieve data from all log options in the map.
+        foreach ($storage_map as $log_key) {
+            $log_data = get_option($log_key, []);
+            $all_logs = array_merge($all_logs, $log_data);
         }
     }
 
-    // Reverse the log data to show the most recent first.
-    $log_data = array_reverse($log_data);
+    // Sort the combined log data.
+    $all_logs = cf_sort_logs_by_date($all_logs);
 
-    // Return the log data.
-    return $log_data;
+    // Apply pagination.
+    $total_items = count($all_logs);
+    $offset = ($page - 1) * $items_per_page;
+    $paginated_logs = array_slice($all_logs, $offset, $items_per_page);
+
+    return [
+        'logs' => $paginated_logs,
+        'total_items' => $total_items,
+        'total_pages' => ceil($total_items / $items_per_page),
+    ];
 }
 
 /**
@@ -600,10 +625,17 @@ function cf_settings_page()
         <h2>Recent Postbacks (Unique gclids/fbclids)</h2>
 
         <?php
-        // Retrieve the transient log data.
-        $log_data = cf_get_postback_log();
+        // Get pagination and items per page
+        $pagination = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
+        $items_per_page = 100;
+        
+        // Retrieve and paginate the log data.
+        $log_result = cf_get_postback_log($pagination, $items_per_page);
+        $log_data = $log_result['logs'];
+        $total_items = $log_result['total_items'];
+        $total_pages = $log_result['total_pages'];
 
-        if ($log_data && is_array($log_data)) {
+        if (!empty($log_data)) {
             $daily_fbclids = [];
             $daily_gclids = [];
 
@@ -729,8 +761,7 @@ function cf_settings_page()
                     <?php
 
                     $search_query = isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
-                    $pagination = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
-
+                    
                     // Allow to search within the log data.
                     if (!empty($search_query)) {
                         $keep = [];
@@ -788,7 +819,6 @@ function cf_settings_page()
                     // Filter logs by IP sources
                     if (!empty($_GET['filter_ips_by_sources'])) {
                         $keep = [];
-
                         // Optimize: create a hash map for quick IP lookups
                         $ips_to_match_map = array_flip($ips_to_match);
 
@@ -799,23 +829,11 @@ function cf_settings_page()
                                 $keep[] = $entry;
                             }
                         }
-
                         $log_data = cf_sort_logs_by_date($keep);
                     }
                 }
                 ?>
             </div>
-
-            <?php
-            $items_per_page = 100;
-
-            // Paginate the log data.
-            $total_items = count($log_data);
-            $total_pages = ceil($total_items / $items_per_page);
-            $offset = ($pagination - 1) * $items_per_page;
-
-            $log_data = array_slice($log_data, $offset, $items_per_page);
-            ?>
 
             <?php if ($total_items > 0) { ?>
                 <p>Displaying page <?php echo $pagination; ?> of <?php echo $total_pages; ?>. Total postbacks:
@@ -923,8 +941,13 @@ function cf_settings_page()
 /**
  * Register deactivation hook to clean up plugin transients.
  */
-function cf_deactivate()
-{
-    delete_transient('cf_postback_log');
+function cf_deactivate() {
+    $storage_map = get_option('cf_postback_log_storage_map', []);
+    foreach ($storage_map as $log_key) {
+        delete_option($log_key);
+    }
+    delete_option('cf_postback_log_storage_map');
+    // Ensure the old option is also cleaned up.
+    delete_option('cf_postback_log');
 }
 register_deactivation_hook(__FILE__, 'cf_deactivate');
