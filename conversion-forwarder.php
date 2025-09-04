@@ -958,7 +958,6 @@ function cf_settings_page()
 
                     <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>">
                         <input type="hidden" name="page" value="conversion_forwarder" />
-                        <input type="hidden" name="pbpage" value="<?php echo esc_attr($pagination); ?>" />
                         <input type="text" name="search" value="<?php echo esc_attr($search_query); ?>"
                             placeholder="Search..." />
                         <input type="submit" value="Search" class="button" />
