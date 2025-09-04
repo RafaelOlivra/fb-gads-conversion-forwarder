@@ -383,11 +383,6 @@ function cf_sort_logs_by_date($logs)
  * @return array The filtered log entries that match the search term.
  */
 function cf_search_logs($logs, $search_term) {
-
-    $search_term = trim(sanitize_text_field($search_term));
-    // Remove scaping bars like \"would_match\":true
-    $search_term = str_replace(['\"', '\"'], ['"', '"'], $search_term);
-
     if (!empty($search_term)) {
         $keep = [];
         for ($i = 0; $i < count($logs); $i++) {
@@ -395,6 +390,7 @@ function cf_search_logs($logs, $search_term) {
                 stripos($logs[$i]['ip'], $search_term) !== false ||
                 stripos($logs[$i]['fbclid'], $search_term) !== false ||
                 stripos($logs[$i]['gclid'], $search_term) !== false ||
+                stripos(strip_tags(cf_prettify_parameters($logs[$i]['parameters'], false)), $search_term) !== false ||
                 stripos(json_encode($logs[$i]['parameters']), $search_term) !== false
             ) {
                 $keep[] = $logs[$i];
@@ -408,10 +404,13 @@ function cf_search_logs($logs, $search_term) {
 
 /**
  * Prints a formatted view of the parameters for easier visualization.
- *
+ * 
  * @param array $params The parameters to print.
+ * @param bool $echo Whether to echo the output directly or return it as a string. Default is true (echo).
+ * 
+ * @return string|null The formatted parameters as a string if $echo is false, otherwise null.
  */
-function cf_print_parameters($params)
+function cf_prettify_parameters($params, $echo = true)
 {
     $output = '<div class="cf-parameters">';
     // Print a nice view for a single hierarchical JSON structure.
@@ -427,7 +426,13 @@ function cf_print_parameters($params)
         }
     }
 
-    echo $output . '</div>';
+    $output = $output . '</div>';
+
+    if ($echo) {
+        echo $output;
+    } else {
+        return $output;
+    }
 }
 
 /**
@@ -487,7 +492,7 @@ function cf_is_admin_page() {
  *
  * @return int The current pagination number.
  */
-function cf_get_current_pagination() {
+function cf_get_current_log_page() {
     $pagination = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
     return $pagination;
 }
@@ -498,7 +503,25 @@ function cf_get_current_pagination() {
  * @return string The current search query.
  */
 function cf_get_search_query() {
-    return isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
+    $search_query = isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
+    $search_query = str_replace(['\"', '\"'], ['"', '"'], $search_query);
+    return $search_query;
+}
+
+/**
+ * Escape a value for CSV
+ */
+function cf_csv_escape($value) {
+    // Convert non-scalar to JSON
+    if (is_array($value) || is_object($value)) {
+        $value = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+    // Ensure string
+    $value = (string) $value;
+    // Escape internal quotes
+    $value = str_replace('"', '""', $value);
+    // Wrap in quotes always (safe for commas/semicolons/newlines)
+    return '"' . $value . '"';
 }
 
 // === Data Export ===
@@ -560,8 +583,77 @@ function cf_export_emails() {
     exit;
 }
 add_action('admin_init', function() {
-    if ( cf_is_admin_page() && isset($_GET['action']) && $_GET['action'] === 'export_emails') {
+    if (cf_is_admin_page() && isset($_GET['action']) && $_GET['action'] === 'export_emails') {
         cf_export_emails();
+    }
+});
+
+/**
+ * Handle log export action
+ */
+/**
+ * Handle log export action
+ */
+function cf_export_logs() {
+    // Check user permissions
+    if (!current_user_can('manage_options')) {
+        wp_die(__('You do not have sufficient permissions to access this page.'));
+    }
+
+    // Allow filtering the logs a search parameter
+    $search_query = cf_get_search_query(); // Get current search query.
+    $log_data = cf_get_postback_log();
+    if (!empty($search_query)) {
+        $log_data = cf_search_logs($log_data, $search_query);
+    }
+
+    // Prepare CSV content
+    $csv_content = "Time,IP,FBCLID,GCLID,Parameters,Raw Parameters\n";
+
+    foreach ($log_data as $entry) {
+        $time  = cf_csv_escape($entry['time']);
+        $ip    = cf_csv_escape($entry['ip']);
+        $fbclid = cf_csv_escape($entry['fbclid']);
+        $gclid  = cf_csv_escape($entry['gclid']);
+
+        // Friendly parameters
+        $param_pairs = [];
+        foreach ($entry['parameters'] as $key => $value) {
+            if (is_array($value)) {
+                $value = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            }
+            $param_pairs[] = "$key=$value";
+        }
+        $parameters = cf_csv_escape(implode("; ", $param_pairs));
+
+        // Raw JSON parameters
+        $raw_parameters = cf_csv_escape(
+            json_encode($entry['parameters'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+        );
+
+        $csv_content .= implode(",", [
+            $time,
+            $ip,
+            $fbclid,
+            $gclid,
+            $parameters,
+            $raw_parameters
+        ]) . "\n";
+    }
+
+    $filename = 'postback_logs_' . date('Y-m-d_H-i-s') . '.csv';
+
+    // Send headers to prompt file download
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    echo $csv_content;
+    exit;
+}
+add_action('admin_init', function() {
+    if (cf_is_admin_page() && isset($_GET['action']) && $_GET['action'] === 'export_logs') {
+        cf_export_logs();
     }
 });
 
@@ -856,7 +948,7 @@ function cf_settings_page()
                     <?php
 
                     $search_query = cf_get_search_query(); // Get current search query.
-                    $pagination = cf_get_current_pagination(); // Get current page number.
+                    $pagination = cf_get_current_log_page(); // Get current page number.
 
                     // Allow to search within the log data.
                     if (!empty($search_query)) {
@@ -874,9 +966,15 @@ function cf_settings_page()
                 </div>
 
                 <div class="row">
+                    <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_logs&search=' . $search_query)) ?>" class="button"><?php echo __('Export Logs') ?></a>
+                    <p style="margin-top: 3px; font-size: 10px;">Search query will be applied to the exported logs.</p>
+                </div>
+
+                <div class="row">
                     <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_emails&search=' . $search_query)) ?>" class="button"><?php echo __('Export Emails') ?></a>
                     <p style="margin-top: 3px; font-size: 10px;">Search query will be applied to the exported emails.</p>
                 </div>
+
                 <?php
                 // Allow external plugins to match logs by providing a list of ips they want to match
                 // The IPs should be sent as an array
@@ -963,7 +1061,7 @@ function cf_settings_page()
                             <td><?php echo esc_html($entry['ip']); ?></td>
                             <td><?php echo esc_html($entry['fbclid']); ?></td>
                             <td><?php echo esc_html($entry['gclid']); ?></td>
-                            <td><?php echo cf_print_parameters($entry['parameters']); ?></td>
+                            <td><?php echo cf_prettify_parameters($entry['parameters']); ?></td>
                         </tr>
                     <?php } ?>
                 </tbody>
@@ -977,13 +1075,16 @@ function cf_settings_page()
                 $window = 10; // how many pages to show around the current
                 $max_visible = 30; // threshold for collapsing
 
+                // Add search query to pagination links if present
+                $search_param = !empty($search_query) ? '&search=' . urlencode($search_query) : '';
+
                 // Show all pages if within max_visible limit
                 if ($total_pages <= $max_visible) {
                     for ($i = 1; $i <= $total_pages; $i++) {
                         if ($i === $pagination) {
                             echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
                         } else {
-                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
+                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $search_param . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
                         }
                     }
                 }
