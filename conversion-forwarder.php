@@ -788,16 +788,18 @@ function cf_settings_page()
                     // Filter logs by IP sources
                     if (!empty($_GET['filter_ips_by_sources'])) {
                         $keep = [];
-                        foreach ($ips_to_match as $ip) {
-                            if (filter_var($ip, FILTER_VALIDATE_IP)) {
-                                // Loop through logs and match IPs
-                                foreach ($log_data as $entry) {
-                                    if (isset($entry['ip']) && $entry['ip'] === $ip) {
-                                        $keep[] = $entry;
-                                    }
-                                }
+
+                        // Optimize: create a hash map for quick IP lookups
+                        $ips_to_match_map = array_flip($ips_to_match);
+
+                        // Iterate through the log data once
+                        foreach ($log_data as $entry) {
+                            // Check if the log entry's IP exists in our map
+                            if (isset($entry['ip']) && isset($ips_to_match_map[$entry['ip']])) {
+                                $keep[] = $entry;
                             }
                         }
+
                         $log_data = cf_sort_logs_by_date($keep);
                     }
                 }
