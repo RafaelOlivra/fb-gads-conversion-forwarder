@@ -7,6 +7,24 @@
  * Author: RO
  */
 
+// Exit if accessed directly.
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// === Constants ===
+
+// Base prefix for all options.
+$custom_prefix = get_option('cf_options_prefix', 'cf_');
+$custom_prefix = preg_replace('/[^a-zA-Z0-9_]/', '', $custom_prefix);
+
+// Ensure the prefix always starts with "cf_"
+if (strpos($custom_prefix, 'cf_') !== 0) {
+    $custom_prefix = 'cf_' . ltrim($custom_prefix, '_');
+}
+
+define('CF_OPTIONS_PREFIX', $custom_prefix);
+
 // === Register REST Endpoint ===
 add_action('rest_api_init', function () {
     register_rest_route('convert/v1', '/forward', [
@@ -25,9 +43,9 @@ add_action('rest_api_init', function () {
 function cf_get_fresh_google_access_token()
 {
     // Retrieve Google OAuth credentials from WordPress options.
-    $client_id = get_option('cf_google_client_id');
-    $client_secret = get_option('cf_google_client_secret');
-    $refresh_token = get_option('cf_google_refresh_token');
+    $client_id = get_option(CF_OPTIONS_PREFIX . 'google_client_id');
+    $client_secret = get_option(CF_OPTIONS_PREFIX . 'google_client_secret');
+    $refresh_token = get_option(CF_OPTIONS_PREFIX . 'google_refresh_token');
 
     // Validate if all necessary credentials are provided.
     if (!$client_id || !$client_secret || !$refresh_token) {
@@ -81,13 +99,13 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
     $current_time = gmdate("Y-m-d\TH:i:s\Z", $timestamp); // Formatted time for Google Ads API.
 
     // Retrieve Facebook API credentials from WordPress options.
-    $fb_token = get_option('cf_fb_token');
-    $pixel_id = get_option('cf_fb_pixel_id');
+    $fb_token = get_option(CF_OPTIONS_PREFIX . 'fb_token');
+    $pixel_id = get_option(CF_OPTIONS_PREFIX . 'fb_pixel_id');
 
     // Retrieve Google Ads API credentials from WordPress options.
-    $google_dev_token = get_option('cf_google_developer_token');
-    $google_cust_id = get_option('cf_google_customer_id');
-    $google_action_id = get_option('cf_google_conversion_action_id');
+    $google_dev_token = get_option(CF_OPTIONS_PREFIX . 'google_developer_token');
+    $google_cust_id = get_option(CF_OPTIONS_PREFIX . 'google_customer_id');
+    $google_action_id = get_option(CF_OPTIONS_PREFIX . 'google_conversion_action_id');
 
     // Validate input: At least one of fbclid or gclid must be provided.
     if (empty($params['fbclid']) && empty($params['gclid'])) {
@@ -300,7 +318,7 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
 function cf_store_log_entry($entry)
 {
     // Retrieve existing log entries from option.
-    $stored_log = get_option('cf_postback_log');
+    $stored_log = get_option(CF_OPTIONS_PREFIX . 'postback_log');
 
     // If no log exists or it's not an array, initialize it.
     if (!is_array($stored_log)) {
@@ -325,7 +343,7 @@ function cf_store_log_entry($entry)
     }
 
     // Save the updated log back to the option.
-    update_option('cf_postback_log', $stored_log);
+    update_option(CF_OPTIONS_PREFIX . 'postback_log', $stored_log);
 }
 
 /**
@@ -337,7 +355,7 @@ function cf_store_log_entry($entry)
 function cf_get_postback_log()
 {
     // Retrieve the postback log from the option.
-    $log_data = get_option('cf_postback_log');
+    $log_data = get_option(CF_OPTIONS_PREFIX . 'postback_log');
 
     // If log data is not an array, initialize it.
     if (!is_array($log_data)) {
@@ -671,15 +689,16 @@ add_action('admin_menu', function () {
 
 // Register plugin settings to be handled by WordPress.
 add_action('admin_init', function () {
-    register_setting('cf_settings_group', 'cf_fb_token');
-    register_setting('cf_settings_group', 'cf_fb_pixel_id');
-    register_setting('cf_settings_group', 'cf_google_client_id');
-    register_setting('cf_settings_group', 'cf_google_client_secret');
-    register_setting('cf_settings_group', 'cf_google_refresh_token');
-    register_setting('cf_settings_group', 'cf_google_developer_token');
-    register_setting('cf_settings_group', 'cf_google_customer_id');
-    register_setting('cf_settings_group', 'cf_google_conversion_action_id');
-    register_setting('cf_settings_group', 'cf_postback_filter');
+    register_setting('cf_settings_group', 'cf_options_prefix');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'fb_token');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'fb_pixel_id');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'google_client_id');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'google_client_secret');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'google_refresh_token');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'google_developer_token');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'google_customer_id');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'google_conversion_action_id');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'postback_filter');
 });
 
 /**
@@ -709,9 +728,22 @@ function cf_settings_page()
         <p>Configure the settings for forwarding conversions to Facebook and Google Ads.</p>
         <form method="post" action="options.php">
             <?php
-            settings_fields('cf_settings_group');
-            do_settings_sections('cf_settings_group');
+                settings_fields('cf_settings_group');
+                do_settings_sections('cf_settings_group');
             ?>
+
+            <h2>Storage</h2>
+            <p>All settings are stored in the WordPress options table with a custom prefix.
+               You can change the prefix below if needed. Changing the prefix will make the plugin use a different set of
+               options, effectively resetting your configuration.</p>
+            <p>Current prefix: <strong><?php echo esc_html(CF_OPTIONS_PREFIX); ?></strong></p>
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row">Options Prefix</th>
+                    <td><input type="text" name="cf_options_prefix" value="<?php echo esc_attr(get_option('cf_options_prefix', 'cf_')); ?>"
+                            size="60" /></td>
+                </tr>
+            </table>
 
             <h2>Facebook API Settings</h2>
             <p>Read the Facebook Conversions API <a
@@ -720,13 +752,13 @@ function cf_settings_page()
             <table class="form-table">
                 <tr valign="top">
                     <th scope="row">Facebook API Token</th>
-                    <td><input type="text" name="cf_fb_token" value="<?php echo esc_attr(get_option('cf_fb_token')); ?>"
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>fb_token" value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'fb_token')); ?>"
                             size="60" /></td>
                 </tr>
                 <tr valign="top">
                     <th scope="row">Facebook Pixel ID</th>
-                    <td><input type="text" name="cf_fb_pixel_id"
-                            value="<?php echo esc_attr(get_option('cf_fb_pixel_id')); ?>" /></td>
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>fb_pixel_id"
+                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'fb_pixel_id')); ?>" /></td>
                 </tr>
             </table>
 
@@ -738,18 +770,18 @@ function cf_settings_page()
             <table class="form-table">
                 <tr valign="top">
                     <th scope="row">Google OAuth Client ID</th>
-                    <td><input type="text" name="cf_google_client_id"
-                            value="<?php echo esc_attr(get_option('cf_google_client_id')); ?>" size="60" /></td>
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_client_id"
+                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_client_id')); ?>" size="60" /></td>
                 </tr>
                 <tr valign="top">
                     <th scope="row">Google OAuth Client Secret</th>
-                    <td><input type="text" name="cf_google_client_secret"
-                            value="<?php echo esc_attr(get_option('cf_google_client_secret')); ?>" size="60" /></td>
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_client_secret"
+                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_client_secret')); ?>" size="60" /></td>
                 </tr>
                 <tr valign="top">
                     <th scope="row">Google OAuth Refresh Token</th>
-                    <td><input type="text" name="cf_google_refresh_token"
-                            value="<?php echo esc_attr(get_option('cf_google_refresh_token')); ?>" size="60" /></td>
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_refresh_token"
+                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_refresh_token')); ?>" size="60" /></td>
                 </tr>
             </table>
 
@@ -760,18 +792,18 @@ function cf_settings_page()
             <table class="form-table">
                 <tr valign="top">
                     <th scope="row">Developer Token</th>
-                    <td><input type="text" name="cf_google_developer_token"
-                            value="<?php echo esc_attr(get_option('cf_google_developer_token')); ?>" /></td>
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_developer_token"
+                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_developer_token')); ?>" /></td>
                 </tr>
                 <tr valign="top">
                     <th scope="row">Customer ID (without hyphens)</th>
-                    <td><input type="text" name="cf_google_customer_id"
-                            value="<?php echo esc_attr(get_option('cf_google_customer_id')); ?>" /></td>
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_customer_id"
+                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_customer_id')); ?>" /></td>
                 </tr>
                 <tr valign="top">
                     <th scope="row">Conversion Action ID</th>
-                    <td><input type="text" name="cf_google_conversion_action_id"
-                            value="<?php echo esc_attr(get_option('cf_google_conversion_action_id')); ?>" /></td>
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_conversion_action_id"
+                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_conversion_action_id')); ?>" /></td>
                 </tr>
             </table>
 
@@ -782,8 +814,8 @@ function cf_settings_page()
             <table class="form-table">
                 <tr valign="top">
                     <th scope="row">Strings to Remove (comma-separated)</th>
-                    <td><input type="text" name="cf_postback_filter"
-                            value="<?php echo esc_attr(get_option('cf_postback_filter')); ?>" /></td>
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>postback_filter"
+                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'postback_filter')); ?>" /></td>
                 </tr>
             </table>
 
@@ -795,23 +827,23 @@ function cf_settings_page()
             <p>Send your conversion data to the following endpoint:</p>
             <pre><code><?php echo esc_url(rest_url('convert/v1/forward')); ?></code></pre>
             <p>Example POST/GET data (JSON for POST, query parameters for GET):</p>
-            <pre>
-                    {
-                        "fbclid": "ABCD1234567890EFGHIJ",
-                        "gclid": "EAIaIQobABCD1234567890EFGHIJ",
-                        "value": 50.00,
-                        "event_name": "Purchase",
-                        "email": "test@example.com",
-                        "phone": "+1234567890",
-                        "first_name": "John",
-                        "last_name": "Doe",
-                        "city": "Anytown",
-                        "state": "CA",
-                        "country": "US",
-                        "zip": "90210",
-                        "external_id": "user123"
-                    }
-                    </pre>
+<pre>
+{
+    "fbclid": "ABCD1234567890EFGHIJ",
+    "gclid": "EAIaIQobABCD1234567890EFGHIJ",
+    "value": 50.00,
+    "event_name": "Purchase",
+    "email": "test@example.com",
+    "phone": "+1234567890",
+    "first_name": "John",
+    "last_name": "Doe",
+    "city": "Anytown",
+    "state": "CA",
+    "country": "US",
+    "zip": "90210",
+    "external_id": "user123"
+}
+</pre>
         </form>
 
         <hr>
@@ -827,7 +859,7 @@ function cf_settings_page()
             $daily_gclids = [];
 
             // Sanitize and filter out unwanted strings
-            $filter_strings = explode(',', get_option('cf_postback_filter', ''));
+            $filter_strings = explode(',', get_option(CF_OPTIONS_PREFIX . 'postback_filter', ''));
             $filter_strings = array_map('trim', $filter_strings);
 
             foreach ($log_data as $i => $entry) {
