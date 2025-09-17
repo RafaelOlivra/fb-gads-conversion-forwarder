@@ -735,7 +735,7 @@ function cf_settings_page()
             <h2>Storage</h2>
             <p>All settings are stored in the WordPress options table with a custom prefix.
                You can change the prefix below if needed. Changing the prefix will make the plugin use a different set of
-               options, effectively resetting your configuration.</p>
+               options, effectively resetting your configuration. Note: The prefix will always start with "cf_".</p>
             <p>Current prefix: <strong><?php echo esc_html(CF_OPTIONS_PREFIX); ?></strong></p>
             <table class="form-table">
                 <tr valign="top">
