@@ -751,14 +751,14 @@ function cf_settings_page()
                     rel="noreferrer noopener">documentation</a> for more information on the required parameters.</p>
             <table class="form-table">
                 <tr valign="top">
-                    <th scope="row">Facebook API Token</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>fb_token" value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'fb_token')); ?>"
-                            size="60" /></td>
-                </tr>
-                <tr valign="top">
                     <th scope="row">Facebook Pixel ID</th>
                     <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>fb_pixel_id"
                             value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'fb_pixel_id')); ?>" /></td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row">Facebook API Token</th>
+                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>fb_token" value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'fb_token')); ?>"
+                            size="60" /></td>
                 </tr>
             </table>
 
