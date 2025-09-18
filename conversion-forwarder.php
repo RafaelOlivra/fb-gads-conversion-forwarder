@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Conversion Forwarder
  * Description: Forwards incoming conversion postbacks to Facebook Conversions API and Google Ads API.
- * Version: 1.0
+ * Version: 1.0.4
  * Author: RO
  */
 
@@ -21,6 +21,11 @@ $custom_prefix = preg_replace('/[^a-zA-Z0-9_]/', '', $custom_prefix);
 // Ensure the prefix always starts with "cf_"
 if (strpos($custom_prefix, 'cf_') !== 0) {
     $custom_prefix = 'cf_' . ltrim($custom_prefix, '_');
+}
+
+// Ensure the prefix always ends with "_"
+if (substr($custom_prefix, -1) !== '_') {
+    $custom_prefix .= '_';
 }
 
 define('CF_OPTIONS_PREFIX', $custom_prefix);
@@ -92,10 +97,10 @@ function cf_get_fresh_google_access_token()
  */
 function cf_handle_incoming_conversion(WP_REST_Request $request)
 {
-    $params = $request->get_params();               // Get all parameters from the incoming request.
-    $log = [];                                   // Initialize array to store successful API responses.
-    $errors = [];                                   // Initialize array to store any errors encountered.
-    $timestamp = time();                               // Current Unix timestamp for event timing.
+    $params = $request->get_params(); // Get all parameters from the incoming request.
+    $log = []; // Initialize array to store successful API responses.
+    $errors = []; // Initialize array to store any errors encountered.
+    $timestamp = time(); // Current Unix timestamp for event timing.
     $current_time = gmdate("Y-m-d\TH:i:s\Z", $timestamp); // Formatted time for Google Ads API.
 
     // Retrieve Facebook API credentials from WordPress options.
