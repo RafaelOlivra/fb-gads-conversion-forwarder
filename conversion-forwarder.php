@@ -33,7 +33,7 @@ define('CF_OPTIONS_PREFIX', $custom_prefix);
 // === Register REST Endpoint ===
 add_action('rest_api_init', function () {
     register_rest_route('convert/v1', '/forward', [
-        'methods' => 'POST,GET',
+        'methods' => ['POST', 'GET', 'OPTIONS'],
         'callback' => 'cf_handle_incoming_conversion',
         'permission_callback' => '__return_true', // Public endpoint, security relies on fbclid/gclid and configured API keys.
     ]);
@@ -97,6 +97,16 @@ function cf_get_fresh_google_access_token()
  */
 function cf_handle_incoming_conversion(WP_REST_Request $request)
 {
+    // === Handle CORS Preflight and Headers ===
+    header("Access-Control-Allow-Origin: *");
+    header("Access-Control-Allow-Methods: POST, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization");
+    
+    // If this is a preflight (OPTIONS) request, return immediately
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        return new WP_REST_Response(null, 200);
+    }
+
     $params = $request->get_params(); // Get all parameters from the incoming request.
     $log = []; // Initialize array to store successful API responses.
     $errors = []; // Initialize array to store any errors encountered.
