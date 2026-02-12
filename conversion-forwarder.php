@@ -101,7 +101,7 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
     header("Access-Control-Allow-Origin: *");
     header("Access-Control-Allow-Methods: POST, OPTIONS");
     header("Access-Control-Allow-Headers: Content-Type, Authorization");
-    
+
     // If this is a preflight (OPTIONS) request, return immediately
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
         return new WP_REST_Response(null, 200);
@@ -415,7 +415,8 @@ function cf_sort_logs_by_date($logs)
  * @param string $search_term The term to search for within the log entries.
  * @return array The filtered log entries that match the search term.
  */
-function cf_search_logs($logs, $search_term) {
+function cf_search_logs($logs, $search_term)
+{
     if (!empty($search_term)) {
         $keep = [];
         for ($i = 0; $i < count($logs); $i++) {
@@ -432,7 +433,7 @@ function cf_search_logs($logs, $search_term) {
                     }
                 }
             }
-            
+
             if (
                 stripos($logs[$i]['time'], $search_term) !== false || // Match partial date in 'time'
                 stripos($logs[$i]['ip'], $search_term) !== false ||
@@ -458,33 +459,34 @@ function cf_search_logs($logs, $search_term) {
  * @param string $end_date The end date (Y-m-d format).
  * @return array The filtered log entries within the date range.
  */
-function cf_filter_logs_by_date($logs, $start_date, $end_date) {
+function cf_filter_logs_by_date($logs, $start_date, $end_date)
+{
     if (empty($start_date) && empty($end_date)) {
         return $logs;
     }
-    
+
     $keep = [];
-    
+
     foreach ($logs as $entry) {
         // Extract date from entry time (format: Y-m-d)
         $entry_date = substr($entry['time'], 0, 10);
-        
+
         // Check if entry is within range
         $include = true;
-        
+
         if (!empty($start_date) && $entry_date < $start_date) {
             $include = false;
         }
-        
+
         if (!empty($end_date) && $entry_date > $end_date) {
             $include = false;
         }
-        
+
         if ($include) {
             $keep[] = $entry;
         }
     }
-    
+
     return $keep;
 }
 
@@ -566,7 +568,8 @@ function cf_get_ip()
  *
  * @return bool True if on the plugin's admin page, false otherwise.
  */
-function cf_is_admin_page() {
+function cf_is_admin_page()
+{
     if (isset($_GET['page']) && $_GET['page'] === 'conversion_forwarder') {
         return true;
     }
@@ -578,7 +581,8 @@ function cf_is_admin_page() {
  *
  * @return int The current pagination number.
  */
-function cf_get_current_log_page() {
+function cf_get_current_log_page()
+{
     $pagination = isset($_GET['pbpage']) ? intval($_GET['pbpage']) : 1; // Get current page number.
     return $pagination;
 }
@@ -588,7 +592,8 @@ function cf_get_current_log_page() {
  *
  * @return string The current search query.
  */
-function cf_get_search_query() {
+function cf_get_search_query()
+{
     $search_query = isset($_GET['search']) ? trim(sanitize_text_field($_GET['search'])) : ''; // Search query.
     $search_query = str_replace(['\"', '\"'], ['"', '"'], $search_query);
     return $search_query;
@@ -599,10 +604,11 @@ function cf_get_search_query() {
  *
  * @return array An array with 'start' and 'end' date strings (Y-m-d format), or empty strings if not set.
  */
-function cf_get_date_range() {
+function cf_get_date_range()
+{
     $start_date = isset($_GET['start_date']) ? sanitize_text_field($_GET['start_date']) : '';
     $end_date = isset($_GET['end_date']) ? sanitize_text_field($_GET['end_date']) : '';
-    
+
     // Validate date format (Y-m-d)
     if ($start_date && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date)) {
         $start_date = '';
@@ -610,7 +616,7 @@ function cf_get_date_range() {
     if ($end_date && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date)) {
         $end_date = '';
     }
-    
+
     return [
         'start' => $start_date,
         'end' => $end_date
@@ -620,7 +626,8 @@ function cf_get_date_range() {
 /**
  * Escape a value for CSV
  */
-function cf_csv_escape($value) {
+function cf_csv_escape($value)
+{
     // Convert non-scalar to JSON
     if (is_array($value) || is_object($value)) {
         $value = json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -638,7 +645,8 @@ function cf_csv_escape($value) {
 /**
  * Handle email export action
  */
-function cf_export_emails() {
+function cf_export_emails()
+{
     // Check user permissions
     if (!current_user_can('manage_options')) {
         wp_die(__('You do not have sufficient permissions to access this page.'));
@@ -695,7 +703,7 @@ function cf_export_emails() {
     echo $csv_content;
     exit;
 }
-add_action('admin_init', function() {
+add_action('admin_init', function () {
     if (cf_is_admin_page() && isset($_GET['action']) && $_GET['action'] === 'export_emails') {
         cf_export_emails();
     }
@@ -707,7 +715,8 @@ add_action('admin_init', function() {
 /**
  * Handle log export action
  */
-function cf_export_logs() {
+function cf_export_logs()
+{
     // Check user permissions
     if (!current_user_can('manage_options')) {
         wp_die(__('You do not have sufficient permissions to access this page.'));
@@ -768,7 +777,7 @@ function cf_export_logs() {
     echo $csv_content;
     exit;
 }
-add_action('admin_init', function() {
+add_action('admin_init', function () {
     if (cf_is_admin_page() && isset($_GET['action']) && $_GET['action'] === 'export_logs') {
         cf_export_logs();
     }
@@ -821,112 +830,123 @@ function cf_settings_page()
         .cf-parameters span {
             white-space: nowrap;
         }
+
+        .cf-settings-form .postbox {
+            padding: 0 15px;
+        }
     </style>
     <div class="wrap">
         <h1>Conversion Forwarder Settings</h1>
         <p>Configure the settings for forwarding conversions to Facebook and Google Ads.</p>
-        <form method="post" action="options.php">
+        <form method="post" action="options.php" class="cf-settings-form">
             <?php
-                settings_fields('cf_settings_group');
-                do_settings_sections('cf_settings_group');
+            settings_fields('cf_settings_group');
+            do_settings_sections('cf_settings_group');
             ?>
+            <div class="postbox">
+                <h2>Storage</h2>
+                <p>All settings are stored in the WordPress options table with a custom prefix.
+                    You can change the prefix below if needed. Changing the prefix will make the plugin use a different set of
+                    options, effectively resetting your configuration. Note: The prefix will always start with "cf_".</p>
+                <p>Current prefix: <strong><?php echo esc_html(CF_OPTIONS_PREFIX); ?></strong></p>
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row">Options Prefix</th>
+                        <td><input type="text" name="cf_options_prefix" value="<?php echo esc_attr(get_option('cf_options_prefix', 'cf_')); ?>"
+                                size="60" /></td>
+                    </tr>
+                </table>
+            </div>
 
-            <h2>Storage</h2>
-            <p>All settings are stored in the WordPress options table with a custom prefix.
-               You can change the prefix below if needed. Changing the prefix will make the plugin use a different set of
-               options, effectively resetting your configuration. Note: The prefix will always start with "cf_".</p>
-            <p>Current prefix: <strong><?php echo esc_html(CF_OPTIONS_PREFIX); ?></strong></p>
-            <table class="form-table">
-                <tr valign="top">
-                    <th scope="row">Options Prefix</th>
-                    <td><input type="text" name="cf_options_prefix" value="<?php echo esc_attr(get_option('cf_options_prefix', 'cf_')); ?>"
-                            size="60" /></td>
-                </tr>
-            </table>
+            <div class="postbox">
+                <h2>Facebook API Settings</h2>
+                <p>Read the Facebook Conversions API <a
+                        href="https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/" target="_blank"
+                        rel="noreferrer noopener">documentation</a> for more information on the required parameters.</p>
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row">Facebook Pixel ID</th>
+                        <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>fb_pixel_id"
+                                value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'fb_pixel_id')); ?>" /></td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row">Facebook API Token</th>
+                        <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>fb_token" value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'fb_token')); ?>"
+                                size="60" /></td>
+                    </tr>
+                </table>
+            </div>
 
-            <h2>Facebook API Settings</h2>
-            <p>Read the Facebook Conversions API <a
-                    href="https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/" target="_blank"
-                    rel="noreferrer noopener">documentation</a> for more information on the required parameters.</p>
-            <table class="form-table">
-                <tr valign="top">
-                    <th scope="row">Facebook Pixel ID</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>fb_pixel_id"
-                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'fb_pixel_id')); ?>" /></td>
-                </tr>
-                <tr valign="top">
-                    <th scope="row">Facebook API Token</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>fb_token" value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'fb_token')); ?>"
-                            size="60" /></td>
-                </tr>
-            </table>
+            <div class="postbox">
+                <h2>Google OAuth Settings (for Automatic Token Refresh)</h2>
+                <p>These credentials are used to obtain an access token for the Google Ads API. For more information on setting
+                    up OAuth, refer to the Google Ads API <a
+                        href="https://developers.google.com/google-ads/api/docs/oauth/overview" target="_blank"
+                        rel="noreferrer noopener">documentation</a>.</p>
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row">Google OAuth Client ID</th>
+                        <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_client_id"
+                                value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_client_id')); ?>" size="60" /></td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row">Google OAuth Client Secret</th>
+                        <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_client_secret"
+                                value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_client_secret')); ?>" size="60" /></td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row">Google OAuth Refresh Token</th>
+                        <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_refresh_token"
+                                value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_refresh_token')); ?>" size="60" /></td>
+                    </tr>
+                </table>
 
-            <h2>Google OAuth Settings (for Automatic Token Refresh)</h2>
-            <p>These credentials are used to obtain an access token for the Google Ads API. For more information on setting
-                up OAuth, refer to the Google Ads API <a
-                    href="https://developers.google.com/google-ads/api/docs/oauth/overview" target="_blank"
-                    rel="noreferrer noopener">documentation</a>.</p>
-            <table class="form-table">
-                <tr valign="top">
-                    <th scope="row">Google OAuth Client ID</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_client_id"
-                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_client_id')); ?>" size="60" /></td>
-                </tr>
-                <tr valign="top">
-                    <th scope="row">Google OAuth Client Secret</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_client_secret"
-                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_client_secret')); ?>" size="60" /></td>
-                </tr>
-                <tr valign="top">
-                    <th scope="row">Google OAuth Refresh Token</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_refresh_token"
-                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_refresh_token')); ?>" size="60" /></td>
-                </tr>
-            </table>
+                <h2>Google Ads API Settings</h2>
+                <p>These are specific to your Google Ads account. Refer to the Google Ads API <a
+                        href="https://developers.google.com/google-ads/api/docs/conversions/overview" target="_blank"
+                        rel="noreferrer noopener">documentation</a> for details on conversion actions.</p>
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row">Developer Token</th>
+                        <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_developer_token"
+                                value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_developer_token')); ?>" /></td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row">Customer ID (without hyphens)</th>
+                        <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_customer_id"
+                                value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_customer_id')); ?>" /></td>
+                    </tr>
+                    <tr valign="top">
+                        <th scope="row">Conversion Action ID</th>
+                        <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_conversion_action_id"
+                                value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_conversion_action_id')); ?>" /></td>
+                    </tr>
+                </table>
+            </div>
 
-            <h2>Google Ads API Settings</h2>
-            <p>These are specific to your Google Ads account. Refer to the Google Ads API <a
-                    href="https://developers.google.com/google-ads/api/docs/conversions/overview" target="_blank"
-                    rel="noreferrer noopener">documentation</a> for details on conversion actions.</p>
-            <table class="form-table">
-                <tr valign="top">
-                    <th scope="row">Developer Token</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_developer_token"
-                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_developer_token')); ?>" /></td>
-                </tr>
-                <tr valign="top">
-                    <th scope="row">Customer ID (without hyphens)</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_customer_id"
-                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_customer_id')); ?>" /></td>
-                </tr>
-                <tr valign="top">
-                    <th scope="row">Conversion Action ID</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>google_conversion_action_id"
-                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'google_conversion_action_id')); ?>" /></td>
-                </tr>
-            </table>
+            <div class="postbox">
+                <h2>Postback Logs Preview</h2>
+                <p>Preview and filter the postbacks logs.<br><strong>Note:</strong> <em>This does not affect the data sent to
+                        the endpoint, only the logs displayed here.</em></p>
 
-            <h2>Postback Logs Preview</h2>
-            <p>Preview and filter the postbacks logs.<br><strong>Note:</strong> <em>This does not affect the data sent to
-                    the endpoint, only the logs displayed here.</em></p>
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row">Strings to Remove (comma-separated)</th>
+                        <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>postback_filter"
+                                value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'postback_filter')); ?>" /></td>
+                    </tr>
+                </table>
 
-            <table class="form-table">
-                <tr valign="top">
-                    <th scope="row">Strings to Remove (comma-separated)</th>
-                    <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>postback_filter"
-                            value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'postback_filter')); ?>" /></td>
-                </tr>
-            </table>
+                <?php submit_button(); ?>
+            </div>
 
-            <?php submit_button(); ?>
+            <div class="postbox">
 
-            <hr>
-
-            <h2>Endpoint Information</h2>
-            <p>Send your conversion data to the following endpoint:</p>
-            <pre><code><?php echo esc_url(rest_url('convert/v1/forward')); ?></code></pre>
-            <p>Example POST/GET data (JSON for POST, query parameters for GET):</p>
-<pre>
+                <h2>Endpoint Information</h2>
+                <p>Send your conversion data to the following endpoint:</p>
+                <pre><code><?php echo esc_url(rest_url('convert/v1/forward')); ?></code></pre>
+                <p>Example POST/GET data (JSON for POST, query parameters for GET):</p>
+                <pre>
 {
     "fbclid": "ABCD1234567890EFGHIJ",
     "gclid": "EAIaIQobABCD1234567890EFGHIJ",
@@ -944,377 +964,376 @@ function cf_settings_page()
 }
 </pre>
         </form>
+    </div>
 
-        <hr>
+    <hr>
 
-        <h2>Recent Postbacks (Unique gclids/fbclids)</h2>
+    <h2>Recent Postbacks</h2>
 
-        <?php
-        // Retrieve the transient log data.
-        $log_data = cf_get_postback_log();
-        
-        // Get filter parameters
-        $search_query = cf_get_search_query();
-        $date_range = cf_get_date_range();
-        $pagination = cf_get_current_log_page();
-        
-        // Store if we have any data at all (before filtering)
-        $has_any_data = $log_data && is_array($log_data) && count($log_data) > 0;
-        
-        // Apply search and date filters BEFORE building chart
-        if (!empty($search_query)) {
-            $log_data = cf_search_logs($log_data, $search_query);
-        }
-        
-        if (!empty($date_range['start']) || !empty($date_range['end'])) {
-            $log_data = cf_filter_logs_by_date($log_data, $date_range['start'], $date_range['end']);
-        }
+    <?php
+    // Retrieve the transient log data.
+    $log_data = cf_get_postback_log();
 
-        if ($log_data && is_array($log_data) && count($log_data) > 0) {
-            $daily_fbclids = [];
-            $daily_gclids = [];
+    // Get filter parameters
+    $search_query = cf_get_search_query();
+    $date_range = cf_get_date_range();
+    $pagination = cf_get_current_log_page();
 
-            // Sanitize and filter out unwanted strings
-            $filter_strings = explode(',', get_option(CF_OPTIONS_PREFIX . 'postback_filter', ''));
-            $filter_strings = array_map('trim', $filter_strings);
+    // Store if we have any data at all (before filtering)
+    $has_any_data = $log_data && is_array($log_data) && count($log_data) > 0;
 
-            foreach ($log_data as $i => $entry) {
-                $continue = true;
+    // Apply search and date filters BEFORE building chart
+    if (!empty($search_query)) {
+        $log_data = cf_search_logs($log_data, $search_query);
+    }
 
-                // Check if any of the filter strings are present in the entry string.
-                $entry_string = json_encode($entry); // Convert entry to string for filtering.
-                foreach ($filter_strings as $filter) {
-                    if (strpos($entry_string, $filter) !== false) {
-                        unset($log_data[$i]); // Remove the entry if it contains any filter string.
-                        $continue = false;    // If any filter string is found, skip this entry.
-                    }
-                }
+    if (!empty($date_range['start']) || !empty($date_range['end'])) {
+        $log_data = cf_filter_logs_by_date($log_data, $date_range['start'], $date_range['end']);
+    }
 
-                // Skip this entry if it contains any filter string.
-                if (!$continue) {
-                    continue;
-                }
+    if ($log_data && is_array($log_data) && count($log_data) > 0) {
+        $daily_fbclids = [];
+        $daily_gclids = [];
 
-                $day = substr($entry['time'], 0, 10);
+        // Sanitize and filter out unwanted strings
+        $filter_strings = explode(',', get_option(CF_OPTIONS_PREFIX . 'postback_filter', ''));
+        $filter_strings = array_map('trim', $filter_strings);
 
-                if (!isset($daily_fbclids[$day])) {
-                    $daily_fbclids[$day] = [];
-                }
-                if (!isset($daily_gclids[$day])) {
-                    $daily_gclids[$day] = [];
-                }
+        foreach ($log_data as $i => $entry) {
+            $continue = true;
 
-                if (!empty($entry['fbclid'])) {
-                    $daily_fbclids[$day][$entry['fbclid']] = true;
-                }
-                if (!empty($entry['gclid'])) {
-                    $daily_gclids[$day][$entry['gclid']] = true;
+            // Check if any of the filter strings are present in the entry string.
+            $entry_string = json_encode($entry); // Convert entry to string for filtering.
+            foreach ($filter_strings as $filter) {
+                if (strpos($entry_string, $filter) !== false) {
+                    unset($log_data[$i]); // Remove the entry if it contains any filter string.
+                    $continue = false;    // If any filter string is found, skip this entry.
                 }
             }
 
-            $all_days = array_unique(array_merge(array_keys($daily_fbclids), array_keys($daily_gclids)));
-            sort($all_days);
-
-            $labels = $all_days;
-            $data_fb = [];
-            $data_google = [];
-
-            foreach ($all_days as $day) {
-                $data_fb[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
-                $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
+            // Skip this entry if it contains any filter string.
+            if (!$continue) {
+                continue;
             }
-        ?>
-            <div style="width:100%; height:300px; margin-bottom:20px;">
-                <canvas id="cfPostbackChart"></canvas>
-            </div>
-            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    const ctx = document.getElementById('cfPostbackChart');
-                    if (ctx) { // Ensure canvas element exists
-                        new Chart(ctx.getContext('2d'), {
-                            type: 'bar',
-                            data: {
-                                labels: <?php echo json_encode($labels); ?>,
-                                datasets: [{
-                                        label: 'Facebook (fbclid)',
-                                        data: <?php echo json_encode($data_fb); ?>,
-                                        backgroundColor: '#3b5998',
-                                        borderColor: '#3b5998',
-                                        borderWidth: 1
-                                    },
-                                    {
-                                        label: 'Google (gclid)',
-                                        data: <?php echo json_encode($data_google); ?>,
-                                        backgroundColor: '#34a853',
-                                        borderColor: '#34a853',
-                                        borderWidth: 1
-                                    }
-                                ]
-                            },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: false, // Allow canvas to resize freely within its container
-                                scales: {
-                                    x: {
-                                        stacked: false,
-                                        title: {
-                                            display: true,
-                                            text: 'Date'
-                                        }
-                                    },
-                                    y: {
-                                        beginAtZero: true,
-                                        title: {
-                                            display: true,
-                                            text: 'Number of Postbacks'
-                                        },
-                                        ticks: {
-                                            precision: 0 // Ensure Y-axis ticks are integers
-                                        }
-                                    }
+
+            $day = substr($entry['time'], 0, 10);
+
+            if (!isset($daily_fbclids[$day])) {
+                $daily_fbclids[$day] = [];
+            }
+            if (!isset($daily_gclids[$day])) {
+                $daily_gclids[$day] = [];
+            }
+
+            if (!empty($entry['fbclid'])) {
+                $daily_fbclids[$day][$entry['fbclid']] = true;
+            }
+            if (!empty($entry['gclid'])) {
+                $daily_gclids[$day][$entry['gclid']] = true;
+            }
+        }
+
+        $all_days = array_unique(array_merge(array_keys($daily_fbclids), array_keys($daily_gclids)));
+        sort($all_days);
+
+        $labels = $all_days;
+        $data_fb = [];
+        $data_google = [];
+
+        foreach ($all_days as $day) {
+            $data_fb[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
+            $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
+        }
+    ?>
+        <div style="width:100%; height:300px; margin-bottom:20px;">
+            <canvas id="cfPostbackChart"></canvas>
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const ctx = document.getElementById('cfPostbackChart');
+                if (ctx) { // Ensure canvas element exists
+                    new Chart(ctx.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: <?php echo json_encode($labels); ?>,
+                            datasets: [{
+                                    label: 'Facebook (fbclid)',
+                                    data: <?php echo json_encode($data_fb); ?>,
+                                    backgroundColor: '#3b5998',
+                                    borderColor: '#3b5998',
+                                    borderWidth: 1
                                 },
-                                plugins: {
-                                    legend: {
-                                        position: 'top',
-                                    },
+                                {
+                                    label: 'Google (gclid)',
+                                    data: <?php echo json_encode($data_google); ?>,
+                                    backgroundColor: '#34a853',
+                                    borderColor: '#34a853',
+                                    borderWidth: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false, // Allow canvas to resize freely within its container
+                            scales: {
+                                x: {
+                                    stacked: false,
                                     title: {
                                         display: true,
-                                        text: 'Daily Conversion Postbacks'
+                                        text: 'Date'
+                                    }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Number of Postbacks'
+                                    },
+                                    ticks: {
+                                        precision: 0 // Ensure Y-axis ticks are integers
                                     }
                                 }
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Daily Conversion Postbacks'
+                                }
                             }
-                        });
-                    }
-                });
-            </script>
+                        }
+                    });
+                }
+            });
+        </script>
+
+    <?php
+    } // End chart if block
+    ?>
+
+    <div id="recent-postbacks" class="cf-row" style="display: flex;grid-template-columns: 1fr 1fr;justify-content: space-between;">
+        <div class="row">
+            <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>">
+                <input type="hidden" name="page" value="conversion_forwarder" />
+                <input type="text" name="search" value="<?php echo esc_attr($search_query); ?>"
+                    placeholder="Search..." />
+                <input type="submit" value="Search" class="button" />
+            </form>
+        </div>
+
+        <div class="row">
+            <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>" style="display: flex; gap: 5px; align-items: center;">
+                <input type="hidden" name="page" value="conversion_forwarder" />
+                <?php if (!empty($search_query)) { ?>
+                    <input type="hidden" name="search" value="<?php echo esc_attr($search_query); ?>" />
+                <?php } ?>
+                <label for="start_date" style="margin: 0;">From:</label>
+                <input type="date" id="start_date" name="start_date" value="<?php echo esc_attr($date_range['start']); ?>" />
+                <label for="end_date" style="margin: 0;">To:</label>
+                <input type="date" id="end_date" name="end_date" value="<?php echo esc_attr($date_range['end']); ?>" />
+                <input type="submit" value="Filter" class="button" />
+                <?php if (!empty($date_range['start']) || !empty($date_range['end'])) { ?>
+                    <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder' . (!empty($search_query) ? '&search=' . urlencode($search_query) : '') . '#recent-postbacks'); ?>" class="button">Clear</a>
+                <?php } ?>
+            </form>
+        </div>
+
+        <div class="row">
+            <?php
+            $export_params = 'search=' . urlencode($search_query);
+            if (!empty($date_range['start'])) {
+                $export_params .= '&start_date=' . urlencode($date_range['start']);
+            }
+            if (!empty($date_range['end'])) {
+                $export_params .= '&end_date=' . urlencode($date_range['end']);
+            }
+            ?>
+            <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_logs&' . $export_params)) ?>" class="button"><?php echo __('Export Logs') ?></a>
+            <p style="margin-top: 3px; font-size: 10px;">Search and date filters will be applied.</p>
+        </div>
+
+        <div class="row">
+            <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_emails&' . $export_params)) ?>" class="button"><?php echo __('Export Emails') ?></a>
+            <p style="margin-top: 3px; font-size: 10px;">Search and date filters will be applied.</p>
+        </div>
 
         <?php
-        } // End chart if block
+        // Allow external plugins to match logs by providing a list of ips they want to match
+        // The IPs should be sent as an array
+        $ips_sources = array_unique(apply_filters('conversion_forwarder_ips_sources', []));
+        $ips_to_match = array_unique(apply_filters('conversion_forwarder_ips_to_match', []));
+
+        if (!empty($ips_sources) && is_array($ips_sources)) {
+            $is_filter_active = !empty($_GET['filter_ips_by_sources']) && $_GET['filter_ips_by_sources'];
+
+            $filter_by_ip_url = add_query_arg('filter_ips_by_sources', true, admin_url('/options-general.php#conversion-log'));
+            $filter_by_ip_url = add_query_arg('page', 'conversion_forwarder', $filter_by_ip_url);
+            $filter_by_ip_url = add_query_arg('pbpage', $pagination, $filter_by_ip_url);
+            $sources = "(" . implode(',', $ips_sources) . ")";
+
+            $btn_text = $is_filter_active ? 'Disable Filter by IP Sources' : 'Filter by IP Sources';
+            if ($is_filter_active) {
+                $filter_by_ip_url = remove_query_arg('filter_ips_by_sources', $filter_by_ip_url);
+                $filter_by_ip_url = remove_query_arg('pbpage', $filter_by_ip_url);
+            }
+        ?>
+            <div class="row">
+                <a href="<?php echo esc_url_raw($filter_by_ip_url) ?>" class="button"><?php echo $btn_text; ?></a>
+                <p style="margin-top: 3px; font-size: 10px;"><?php echo $sources; ?> - Total of
+                    <?php echo count($ips_to_match); ?> IPs.
+                </p>
+            </div>
+        <?php
+
+            // Filter logs by IP sources
+            if (!empty($_GET['filter_ips_by_sources'])) {
+                $keep = [];
+
+                // Optimize: create a hash map for quick IP lookups
+                $ips_to_match_map = array_flip($ips_to_match);
+
+                // Iterate through the log data once
+                foreach ($log_data as $entry) {
+                    // Check if the log entry's IP exists in our map
+                    if (isset($entry['ip']) && isset($ips_to_match_map[$entry['ip']])) {
+                        $keep[] = $entry;
+                    }
+                }
+
+                $log_data = cf_sort_logs_by_date($keep);
+            }
+        }
+        ?>
+    </div>
+
+    <?php
+    // Check if we have filtered data to display
+    if ($log_data && is_array($log_data) && count($log_data) > 0) {
+        $items_per_page = 100;
+
+        // Paginate the log data.
+        $total_items = count($log_data);
+        $total_pages = ceil($total_items / $items_per_page);
+        $offset = ($pagination - 1) * $items_per_page;
+
+        $log_data = array_slice($log_data, $offset, $items_per_page);
+    ?>
+
+        <p>Displaying page <?php echo $pagination; ?> of <?php echo $total_pages; ?>. Total postbacks:
+            <?php echo $total_items; ?>.
+        </p>
+
+        <table class="widefat fixed striped" id="conversion-log">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>IP</th>
+                    <th>fbclid</th>
+                    <th>gclid</th>
+                    <th>Parameters</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($log_data as $entry) {
+                ?>
+                    <tr>
+                        <td><?php echo esc_html($entry['time']); ?></td>
+                        <td><?php echo esc_html($entry['ip']); ?></td>
+                        <td><?php echo esc_html($entry['fbclid']); ?></td>
+                        <td><?php echo esc_html($entry['gclid']); ?></td>
+                        <td><?php echo cf_prettify_parameters($entry['parameters']); ?></td>
+                    </tr>
+                <?php } ?>
+            </tbody>
+        </table>
+
+        <?php
+        // Display pagination links.
+        if ($total_pages > 1) {
+            echo '<div class="tablenav" style="text-align: center;">';
+
+            $window = 10; // how many pages to show around the current
+            $max_visible = 30; // threshold for collapsing
+
+            // Build query params for pagination links
+            $query_params = [];
+            if (!empty($search_query)) {
+                $query_params[] = 'search=' . urlencode($search_query);
+            }
+            if (!empty($date_range['start'])) {
+                $query_params[] = 'start_date=' . urlencode($date_range['start']);
+            }
+            if (!empty($date_range['end'])) {
+                $query_params[] = 'end_date=' . urlencode($date_range['end']);
+            }
+            $query_string = !empty($query_params) ? '&' . implode('&', $query_params) : '';
+
+            // Show all pages if within max_visible limit
+            if ($total_pages <= $max_visible) {
+                for ($i = 1; $i <= $total_pages; $i++) {
+                    if ($i === $pagination) {
+                        echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
+                    } else {
+                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
+                    }
+                }
+            }
+            // Show a moving window of pages
+            else {
+                // Always show first page
+                if ($pagination == 1) {
+                    echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">1</span>';
+                } else {
+                    echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=1' . $query_string . '#recent-postbacks" style="margin-left: 5px;">1</a>';
+                }
+
+                // Add "..." if current is far from start
+                if ($pagination > ($window + 2)) {
+                    echo '<span style="margin-left: 5px;">...</span>';
+                }
+
+                // Middle pages around current
+                $start = max(2, $pagination - $window);
+                $end = min($total_pages - 1, $pagination + $window);
+
+                for ($i = $start; $i <= $end; $i++) {
+                    if ($i === $pagination) {
+                        echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
+                    } else {
+                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
+                    }
+                }
+
+                // Add "..." if current is far from end
+                if ($pagination < $total_pages - ($window + 1)) {
+                    echo '<span style="margin-left: 5px;">...</span>';
+                }
+
+                // Always show last page
+                if ($pagination == $total_pages) {
+                    echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $total_pages . '</span>';
+                } else {
+                    echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $total_pages . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $total_pages . '</a>';
+                }
+            }
+
+            echo '</div>';
+        }
         ?>
 
-            <h2 id="recent-postbacks">Recent Postbacks (Log)</h2>
-
-            <div class="cf-row" style="display: flex;grid-template-columns: 1fr 1fr;justify-content: space-between;">
-                <div class="row">
-                    <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>">
-                        <input type="hidden" name="page" value="conversion_forwarder" />
-                        <input type="text" name="search" value="<?php echo esc_attr($search_query); ?>"
-                            placeholder="Search..." />
-                        <input type="submit" value="Search" class="button" />
-                    </form>
-                </div>
-                
-                <div class="row">
-                    <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>" style="display: flex; gap: 5px; align-items: center;">
-                        <input type="hidden" name="page" value="conversion_forwarder" />
-                        <?php if (!empty($search_query)) { ?>
-                            <input type="hidden" name="search" value="<?php echo esc_attr($search_query); ?>" />
-                        <?php } ?>
-                        <label for="start_date" style="margin: 0;">From:</label>
-                        <input type="date" id="start_date" name="start_date" value="<?php echo esc_attr($date_range['start']); ?>" />
-                        <label for="end_date" style="margin: 0;">To:</label>
-                        <input type="date" id="end_date" name="end_date" value="<?php echo esc_attr($date_range['end']); ?>" />
-                        <input type="submit" value="Filter" class="button" />
-                        <?php if (!empty($date_range['start']) || !empty($date_range['end'])) { ?>
-                            <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder' . (!empty($search_query) ? '&search=' . urlencode($search_query) : '') . '#recent-postbacks'); ?>" class="button">Clear</a>
-                        <?php } ?>
-                    </form>
-                </div>
-
-                <div class="row">
-                    <?php
-                    $export_params = 'search=' . urlencode($search_query);
-                    if (!empty($date_range['start'])) {
-                        $export_params .= '&start_date=' . urlencode($date_range['start']);
-                    }
-                    if (!empty($date_range['end'])) {
-                        $export_params .= '&end_date=' . urlencode($date_range['end']);
-                    }
-                    ?>
-                    <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_logs&' . $export_params)) ?>" class="button"><?php echo __('Export Logs') ?></a>
-                    <p style="margin-top: 3px; font-size: 10px;">Search and date filters will be applied.</p>
-                </div>
-
-                <div class="row">
-                    <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_emails&' . $export_params)) ?>" class="button"><?php echo __('Export Emails') ?></a>
-                    <p style="margin-top: 3px; font-size: 10px;">Search and date filters will be applied.</p>
-                </div>
-
-                <?php
-                // Allow external plugins to match logs by providing a list of ips they want to match
-                // The IPs should be sent as an array
-                $ips_sources = array_unique(apply_filters('conversion_forwarder_ips_sources', []));
-                $ips_to_match = array_unique(apply_filters('conversion_forwarder_ips_to_match', []));
-
-                if (!empty($ips_sources) && is_array($ips_sources)) {
-                    $is_filter_active = !empty($_GET['filter_ips_by_sources']) && $_GET['filter_ips_by_sources'];
-
-                    $filter_by_ip_url = add_query_arg('filter_ips_by_sources', true, admin_url('/options-general.php#conversion-log'));
-                    $filter_by_ip_url = add_query_arg('page', 'conversion_forwarder', $filter_by_ip_url);
-                    $filter_by_ip_url = add_query_arg('pbpage', $pagination, $filter_by_ip_url);
-                    $sources = "(" . implode(',', $ips_sources) . ")";
-
-                    $btn_text = $is_filter_active ? 'Disable Filter by IP Sources' : 'Filter by IP Sources';
-                    if ($is_filter_active) {
-                        $filter_by_ip_url = remove_query_arg('filter_ips_by_sources', $filter_by_ip_url);
-                        $filter_by_ip_url = remove_query_arg('pbpage', $filter_by_ip_url);
-                    }
-                ?>
-                    <div class="row">
-                        <a href="<?php echo esc_url_raw($filter_by_ip_url) ?>" class="button"><?php echo $btn_text; ?></a>
-                        <p style="margin-top: 3px; font-size: 10px;"><?php echo $sources; ?> - Total of
-                            <?php echo count($ips_to_match); ?> IPs.
-                        </p>
-                    </div>
-                <?php
-
-                    // Filter logs by IP sources
-                    if (!empty($_GET['filter_ips_by_sources'])) {
-                        $keep = [];
-
-                        // Optimize: create a hash map for quick IP lookups
-                        $ips_to_match_map = array_flip($ips_to_match);
-
-                        // Iterate through the log data once
-                        foreach ($log_data as $entry) {
-                            // Check if the log entry's IP exists in our map
-                            if (isset($entry['ip']) && isset($ips_to_match_map[$entry['ip']])) {
-                                $keep[] = $entry;
-                            }
-                        }
-
-                        $log_data = cf_sort_logs_by_date($keep);
-                    }
-                }
-                ?>
-            </div>
-
-            <?php
-            // Check if we have filtered data to display
-            if ($log_data && is_array($log_data) && count($log_data) > 0) {
-                $items_per_page = 100;
-
-                // Paginate the log data.
-                $total_items = count($log_data);
-                $total_pages = ceil($total_items / $items_per_page);
-                $offset = ($pagination - 1) * $items_per_page;
-
-                $log_data = array_slice($log_data, $offset, $items_per_page);
-            ?>
-
-            <p>Displaying page <?php echo $pagination; ?> of <?php echo $total_pages; ?>. Total postbacks:
-                <?php echo $total_items; ?>.
-            </p>
-
-            <table class="widefat fixed striped" id="conversion-log">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>IP</th>
-                        <th>fbclid</th>
-                        <th>gclid</th>
-                        <th>Parameters</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($log_data as $entry) {
-                    ?>
-                        <tr>
-                            <td><?php echo esc_html($entry['time']); ?></td>
-                            <td><?php echo esc_html($entry['ip']); ?></td>
-                            <td><?php echo esc_html($entry['fbclid']); ?></td>
-                            <td><?php echo esc_html($entry['gclid']); ?></td>
-                            <td><?php echo cf_prettify_parameters($entry['parameters']); ?></td>
-                        </tr>
-                    <?php } ?>
-                </tbody>
-            </table>
-
-            <?php
-            // Display pagination links.
-            if ($total_pages > 1) {
-                echo '<div class="tablenav" style="text-align: center;">';
-
-                $window = 10; // how many pages to show around the current
-                $max_visible = 30; // threshold for collapsing
-
-                // Build query params for pagination links
-                $query_params = [];
-                if (!empty($search_query)) {
-                    $query_params[] = 'search=' . urlencode($search_query);
-                }
-                if (!empty($date_range['start'])) {
-                    $query_params[] = 'start_date=' . urlencode($date_range['start']);
-                }
-                if (!empty($date_range['end'])) {
-                    $query_params[] = 'end_date=' . urlencode($date_range['end']);
-                }
-                $query_string = !empty($query_params) ? '&' . implode('&', $query_params) : '';
-
-                // Show all pages if within max_visible limit
-                if ($total_pages <= $max_visible) {
-                    for ($i = 1; $i <= $total_pages; $i++) {
-                        if ($i === $pagination) {
-                            echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
-                        } else {
-                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
-                        }
-                    }
-                }
-                // Show a moving window of pages
-                else {
-                    // Always show first page
-                    if ($pagination == 1) {
-                        echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">1</span>';
-                    } else {
-                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=1' . $query_string . '#recent-postbacks" style="margin-left: 5px;">1</a>';
-                    }
-
-                    // Add "..." if current is far from start
-                    if ($pagination > ($window + 2)) {
-                        echo '<span style="margin-left: 5px;">...</span>';
-                    }
-
-                    // Middle pages around current
-                    $start = max(2, $pagination - $window);
-                    $end = min($total_pages - 1, $pagination + $window);
-
-                    for ($i = $start; $i <= $end; $i++) {
-                        if ($i === $pagination) {
-                            echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
-                        } else {
-                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
-                        }
-                    }
-
-                    // Add "..." if current is far from end
-                    if ($pagination < $total_pages - ($window + 1)) {
-                        echo '<span style="margin-left: 5px;">...</span>';
-                    }
-
-                    // Always show last page
-                    if ($pagination == $total_pages) {
-                        echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $total_pages . '</span>';
-                    } else {
-                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $total_pages . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $total_pages . '</a>';
-                    }
-                }
-
-                echo '</div>';
-            }
-            ?>
-
-        <?php
-            } else {
-                // Show appropriate message based on whether we have any data at all
-                if ($has_any_data) {
-                    echo '<p>No postbacks found matching your filters.</p>';
-                } else {
-                    echo '<p>No postbacks received yet.</p>';
-                }
-            }
-            ?>
+    <?php
+    } else {
+        // Show appropriate message based on whether we have any data at all
+        if ($has_any_data) {
+            echo '<p>No postbacks found matching your filters.</p>';
+        } else {
+            echo '<p>No postbacks received yet.</p>';
+        }
+    }
+    ?>
 
     </div>
 <?php
