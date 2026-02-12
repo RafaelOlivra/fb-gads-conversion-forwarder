@@ -436,6 +436,44 @@ function cf_search_logs($logs, $search_term) {
 }
 
 /**
+ * Filters log entries based on a date range.
+ *
+ * @param array $logs The log entries to filter.
+ * @param string $start_date The start date (Y-m-d format).
+ * @param string $end_date The end date (Y-m-d format).
+ * @return array The filtered log entries within the date range.
+ */
+function cf_filter_logs_by_date($logs, $start_date, $end_date) {
+    if (empty($start_date) && empty($end_date)) {
+        return $logs;
+    }
+    
+    $keep = [];
+    
+    foreach ($logs as $entry) {
+        // Extract date from entry time (format: Y-m-d)
+        $entry_date = substr($entry['time'], 0, 10);
+        
+        // Check if entry is within range
+        $include = true;
+        
+        if (!empty($start_date) && $entry_date < $start_date) {
+            $include = false;
+        }
+        
+        if (!empty($end_date) && $entry_date > $end_date) {
+            $include = false;
+        }
+        
+        if ($include) {
+            $keep[] = $entry;
+        }
+    }
+    
+    return $keep;
+}
+
+/**
  * Prints a formatted view of the parameters for easier visualization.
  * 
  * @param array $params The parameters to print.
@@ -542,6 +580,29 @@ function cf_get_search_query() {
 }
 
 /**
+ * Retrieves the date range from the query parameters.
+ *
+ * @return array An array with 'start' and 'end' date strings (Y-m-d format), or empty strings if not set.
+ */
+function cf_get_date_range() {
+    $start_date = isset($_GET['start_date']) ? sanitize_text_field($_GET['start_date']) : '';
+    $end_date = isset($_GET['end_date']) ? sanitize_text_field($_GET['end_date']) : '';
+    
+    // Validate date format (Y-m-d)
+    if ($start_date && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $start_date)) {
+        $start_date = '';
+    }
+    if ($end_date && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end_date)) {
+        $end_date = '';
+    }
+    
+    return [
+        'start' => $start_date,
+        'end' => $end_date
+    ];
+}
+
+/**
  * Escape a value for CSV
  */
 function cf_csv_escape($value) {
@@ -568,11 +629,15 @@ function cf_export_emails() {
         wp_die(__('You do not have sufficient permissions to access this page.'));
     }
 
-    // Allow filtering the logs a search parameter
+    // Allow filtering the logs by search parameter and date range
     $search_query = cf_get_search_query(); // Get current search query.
+    $date_range = cf_get_date_range(); // Get date range.
     $log_data = cf_get_postback_log();
     if (!empty($search_query)) {
         $log_data = cf_search_logs($log_data, $search_query);
+    }
+    if (!empty($date_range['start']) || !empty($date_range['end'])) {
+        $log_data = cf_filter_logs_by_date($log_data, $date_range['start'], $date_range['end']);
     }
 
     // Get the email addresses from the database
@@ -633,11 +698,15 @@ function cf_export_logs() {
         wp_die(__('You do not have sufficient permissions to access this page.'));
     }
 
-    // Allow filtering the logs a search parameter
+    // Allow filtering the logs by search parameter and date range
     $search_query = cf_get_search_query(); // Get current search query.
+    $date_range = cf_get_date_range(); // Get date range.
     $log_data = cf_get_postback_log();
     if (!empty($search_query)) {
         $log_data = cf_search_logs($log_data, $search_query);
+    }
+    if (!empty($date_range['start']) || !empty($date_range['end'])) {
+        $log_data = cf_filter_logs_by_date($log_data, $date_range['start'], $date_range['end']);
     }
 
     // Prepare CSV content
@@ -995,11 +1064,17 @@ function cf_settings_page()
                     <?php
 
                     $search_query = cf_get_search_query(); // Get current search query.
+                    $date_range = cf_get_date_range(); // Get date range.
                     $pagination = cf_get_current_log_page(); // Get current page number.
 
                     // Allow to search within the log data.
                     if (!empty($search_query)) {
                         $log_data = cf_search_logs($log_data, $search_query);
+                    }
+                    
+                    // Filter by date range.
+                    if (!empty($date_range['start']) || !empty($date_range['end'])) {
+                        $log_data = cf_filter_logs_by_date($log_data, $date_range['start'], $date_range['end']);
                     }
                     ?>
 
@@ -1010,15 +1085,41 @@ function cf_settings_page()
                         <input type="submit" value="Search" class="button" />
                     </form>
                 </div>
-
+                
                 <div class="row">
-                    <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_logs&search=' . $search_query)) ?>" class="button"><?php echo __('Export Logs') ?></a>
-                    <p style="margin-top: 3px; font-size: 10px;">Search query will be applied to the exported logs.</p>
+                    <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>" style="display: flex; gap: 5px; align-items: center;">
+                        <input type="hidden" name="page" value="conversion_forwarder" />
+                        <?php if (!empty($search_query)) { ?>
+                            <input type="hidden" name="search" value="<?php echo esc_attr($search_query); ?>" />
+                        <?php } ?>
+                        <label for="start_date" style="margin: 0;">From:</label>
+                        <input type="date" id="start_date" name="start_date" value="<?php echo esc_attr($date_range['start']); ?>" />
+                        <label for="end_date" style="margin: 0;">To:</label>
+                        <input type="date" id="end_date" name="end_date" value="<?php echo esc_attr($date_range['end']); ?>" />
+                        <input type="submit" value="Filter" class="button" />
+                        <?php if (!empty($date_range['start']) || !empty($date_range['end'])) { ?>
+                            <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder' . (!empty($search_query) ? '&search=' . urlencode($search_query) : '') . '#recent-postbacks'); ?>" class="button">Clear</a>
+                        <?php } ?>
+                    </form>
                 </div>
 
                 <div class="row">
-                    <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_emails&search=' . $search_query)) ?>" class="button"><?php echo __('Export Emails') ?></a>
-                    <p style="margin-top: 3px; font-size: 10px;">Search query will be applied to the exported emails.</p>
+                    <?php
+                    $export_params = 'search=' . urlencode($search_query);
+                    if (!empty($date_range['start'])) {
+                        $export_params .= '&start_date=' . urlencode($date_range['start']);
+                    }
+                    if (!empty($date_range['end'])) {
+                        $export_params .= '&end_date=' . urlencode($date_range['end']);
+                    }
+                    ?>
+                    <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_logs&' . $export_params)) ?>" class="button"><?php echo __('Export Logs') ?></a>
+                    <p style="margin-top: 3px; font-size: 10px;">Search and date filters will be applied.</p>
+                </div>
+
+                <div class="row">
+                    <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_emails&' . $export_params)) ?>" class="button"><?php echo __('Export Emails') ?></a>
+                    <p style="margin-top: 3px; font-size: 10px;">Search and date filters will be applied.</p>
                 </div>
 
                 <?php
