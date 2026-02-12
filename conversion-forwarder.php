@@ -925,9 +925,8 @@ function cf_settings_page()
             </div>
 
             <div class="postbox">
-                <h2>Postback Logs Preview</h2>
-                <p>Preview and filter the postbacks logs.<br><strong>Note:</strong> <em>This does not affect the data sent to
-                        the endpoint, only the logs displayed here.</em></p>
+                <h2>Permanent Postbacks Preview Filter</h2>
+                <p>Apply filtering to the displayed postbacks logs.<br><strong>Note:</strong> <em>This does not affect the data sent to the endpoint, only the logs displayed here.</em></p>
 
                 <table class="form-table">
                     <tr valign="top">
