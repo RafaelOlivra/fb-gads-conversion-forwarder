@@ -420,17 +420,17 @@ function cf_search_logs($logs, $search_term) {
         $keep = [];
         for ($i = 0; $i < count($logs); $i++) {
             if (
+                stripos($logs[$i]['time'], $search_term) !== false || // Match partial date in 'time'
                 stripos($logs[$i]['ip'], $search_term) !== false ||
                 stripos($logs[$i]['fbclid'], $search_term) !== false ||
                 stripos($logs[$i]['gclid'], $search_term) !== false ||
-                stripos(strip_tags(cf_prettify_parameters($logs[$i]['parameters'], false)), $search_term) !== false ||
                 stripos(json_encode($logs[$i]['parameters']), $search_term) !== false
             ) {
                 $keep[] = $logs[$i];
             }
         }
-            $logs = cf_sort_logs_by_date($keep);
-        }
+        $logs = cf_sort_logs_by_date($keep);
+    }
 
     return $logs;
 }
