@@ -968,7 +968,7 @@ function cf_settings_page()
 
     <hr>
 
-    <h2>Recent Postbacks</h2>
+    <h2 id="recent-postbacks">Recent Postbacks</h2>
 
     <?php
     // Retrieve the transient log data.
@@ -1114,7 +1114,7 @@ function cf_settings_page()
     } // End chart if block
     ?>
 
-    <div id="recent-postbacks" class="cf-row" style="display: flex;grid-template-columns: 1fr 1fr;justify-content: space-between;">
+    <div class="cf-row" style="display: flex;grid-template-columns: 1fr 1fr;justify-content: space-between;">
         <div class="row">
             <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>">
                 <input type="hidden" name="page" value="conversion_forwarder" />
