@@ -419,12 +419,27 @@ function cf_search_logs($logs, $search_term) {
     if (!empty($search_term)) {
         $keep = [];
         for ($i = 0; $i < count($logs); $i++) {
+            // Create a searchable text representation matching the display format
+            $searchable_params = '';
+            if (isset($logs[$i]['parameters']) && is_array($logs[$i]['parameters'])) {
+                foreach ($logs[$i]['parameters'] as $key => $value) {
+                    if (is_bool($value)) {
+                        $searchable_params .= $key . ': ' . ($value ? 'true' : 'false') . "\n";
+                    } else if (is_array($value) || is_object($value)) {
+                        $searchable_params .= $key . ': ' . json_encode($value, JSON_PRETTY_PRINT) . "\n";
+                    } else {
+                        $searchable_params .= $key . ': ' . $value . "\n";
+                    }
+                }
+            }
+            
             if (
                 stripos($logs[$i]['time'], $search_term) !== false || // Match partial date in 'time'
                 stripos($logs[$i]['ip'], $search_term) !== false ||
                 stripos($logs[$i]['fbclid'], $search_term) !== false ||
                 stripos($logs[$i]['gclid'], $search_term) !== false ||
-                stripos(json_encode($logs[$i]['parameters']), $search_term) !== false
+                stripos($searchable_params, $search_term) !== false || // Match in formatted parameters
+                stripos(json_encode($logs[$i]['parameters']), $search_term) !== false // Also keep JSON search as fallback
             ) {
                 $keep[] = $logs[$i];
             }
