@@ -937,8 +937,25 @@ function cf_settings_page()
         <?php
         // Retrieve the transient log data.
         $log_data = cf_get_postback_log();
+        
+        // Get filter parameters
+        $search_query = cf_get_search_query();
+        $date_range = cf_get_date_range();
+        $pagination = cf_get_current_log_page();
+        
+        // Store if we have any data at all (before filtering)
+        $has_any_data = $log_data && is_array($log_data) && count($log_data) > 0;
+        
+        // Apply search and date filters BEFORE building chart
+        if (!empty($search_query)) {
+            $log_data = cf_search_logs($log_data, $search_query);
+        }
+        
+        if (!empty($date_range['start']) || !empty($date_range['end'])) {
+            $log_data = cf_filter_logs_by_date($log_data, $date_range['start'], $date_range['end']);
+        }
 
-        if ($log_data && is_array($log_data)) {
+        if ($log_data && is_array($log_data) && count($log_data) > 0) {
             $daily_fbclids = [];
             $daily_gclids = [];
 
@@ -1057,27 +1074,14 @@ function cf_settings_page()
                 });
             </script>
 
+        <?php
+        } // End chart if block
+        ?>
+
             <h2 id="recent-postbacks">Recent Postbacks (Log)</h2>
 
             <div class="cf-row" style="display: flex;grid-template-columns: 1fr 1fr;justify-content: space-between;">
                 <div class="row">
-                    <?php
-
-                    $search_query = cf_get_search_query(); // Get current search query.
-                    $date_range = cf_get_date_range(); // Get date range.
-                    $pagination = cf_get_current_log_page(); // Get current page number.
-
-                    // Allow to search within the log data.
-                    if (!empty($search_query)) {
-                        $log_data = cf_search_logs($log_data, $search_query);
-                    }
-                    
-                    // Filter by date range.
-                    if (!empty($date_range['start']) || !empty($date_range['end'])) {
-                        $log_data = cf_filter_logs_by_date($log_data, $date_range['start'], $date_range['end']);
-                    }
-                    ?>
-
                     <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>">
                         <input type="hidden" name="page" value="conversion_forwarder" />
                         <input type="text" name="search" value="<?php echo esc_attr($search_query); ?>"
@@ -1172,23 +1176,21 @@ function cf_settings_page()
             </div>
 
             <?php
-            $items_per_page = 100;
+            // Check if we have filtered data to display
+            if ($log_data && is_array($log_data) && count($log_data) > 0) {
+                $items_per_page = 100;
 
-            // Paginate the log data.
-            $total_items = count($log_data);
-            $total_pages = ceil($total_items / $items_per_page);
-            $offset = ($pagination - 1) * $items_per_page;
+                // Paginate the log data.
+                $total_items = count($log_data);
+                $total_pages = ceil($total_items / $items_per_page);
+                $offset = ($pagination - 1) * $items_per_page;
 
-            $log_data = array_slice($log_data, $offset, $items_per_page);
+                $log_data = array_slice($log_data, $offset, $items_per_page);
             ?>
 
-            <?php if ($total_items > 0) { ?>
-                <p>Displaying page <?php echo $pagination; ?> of <?php echo $total_pages; ?>. Total postbacks:
-                    <?php echo $total_items; ?>.
-                </p>
-            <?php } else { ?>
-                <p>No postbacks found.</p>
-            <?php } ?>
+            <p>Displaying page <?php echo $pagination; ?> of <?php echo $total_pages; ?>. Total postbacks:
+                <?php echo $total_items; ?>.
+            </p>
 
             <table class="widefat fixed striped" id="conversion-log">
                 <thead>
@@ -1222,8 +1224,18 @@ function cf_settings_page()
                 $window = 10; // how many pages to show around the current
                 $max_visible = 30; // threshold for collapsing
 
-                // Add search query to pagination links if present
-                $search_param = !empty($search_query) ? '&search=' . urlencode($search_query) : '';
+                // Build query params for pagination links
+                $query_params = [];
+                if (!empty($search_query)) {
+                    $query_params[] = 'search=' . urlencode($search_query);
+                }
+                if (!empty($date_range['start'])) {
+                    $query_params[] = 'start_date=' . urlencode($date_range['start']);
+                }
+                if (!empty($date_range['end'])) {
+                    $query_params[] = 'end_date=' . urlencode($date_range['end']);
+                }
+                $query_string = !empty($query_params) ? '&' . implode('&', $query_params) : '';
 
                 // Show all pages if within max_visible limit
                 if ($total_pages <= $max_visible) {
@@ -1231,7 +1243,7 @@ function cf_settings_page()
                         if ($i === $pagination) {
                             echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
                         } else {
-                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $search_param . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
+                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
                         }
                     }
                 }
@@ -1241,7 +1253,7 @@ function cf_settings_page()
                     if ($pagination == 1) {
                         echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">1</span>';
                     } else {
-                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=1#recent-postbacks" style="margin-left: 5px;">1</a>';
+                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=1' . $query_string . '#recent-postbacks" style="margin-left: 5px;">1</a>';
                     }
 
                     // Add "..." if current is far from start
@@ -1257,7 +1269,7 @@ function cf_settings_page()
                         if ($i === $pagination) {
                             echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
                         } else {
-                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
+                            echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
                         }
                     }
 
@@ -1270,7 +1282,7 @@ function cf_settings_page()
                     if ($pagination == $total_pages) {
                         echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $total_pages . '</span>';
                     } else {
-                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $total_pages . '#recent-postbacks" style="margin-left: 5px;">' . $total_pages . '</a>';
+                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $total_pages . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $total_pages . '</a>';
                     }
                 }
 
@@ -1279,10 +1291,15 @@ function cf_settings_page()
             ?>
 
         <?php
-        } else {
-            echo '<p>No postbacks received yet.</p>';
-        }
-        ?>
+            } else {
+                // Show appropriate message based on whether we have any data at all
+                if ($has_any_data) {
+                    echo '<p>No postbacks found matching your filters.</p>';
+                } else {
+                    echo '<p>No postbacks received yet.</p>';
+                }
+            }
+            ?>
 
     </div>
 <?php
