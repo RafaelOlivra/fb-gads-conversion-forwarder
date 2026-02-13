@@ -11,12 +11,20 @@ It listens for incoming HTTP POST or GET requests (from 3rd party sources like a
 -   ✅ **Facebook Conversions API**
 -   ✅ **Google Ads API (Click Conversion Uploads)**
 
+**Key Features:**
+- Automatic Google OAuth token refresh
+- Comprehensive postback logging with search & filtering
+- CSV export for logs and email lists
+- Visual analytics with daily conversion charts
+- IP-based filtering support
+- Configurable storage prefix for multi-instance setups
+
 ---
 
 ## ✅ Incoming Endpoint:
 
 ```
-POST https://YOUR_SITE.com/wp-json/convert/v1/forward
+POST/GET https://YOUR_SITE.com/wp-json/convert/v1/forward
 ```
 
 You can send data via POST or GET. Example tools: Postman, affiliate systems, tracking platforms.
@@ -25,22 +33,41 @@ You can send data via POST or GET. Example tools: Postman, affiliate systems, tr
 
 ## ✅ Supported Input Parameters:
 
+### Click Identifiers (at least one required):
 | Parameter   | Type   | Required for | Example                       |
 | ----------- | ------ | ------------ | ----------------------------- |
 | fbclid      | string | Facebook     | `"fbclid": "FB.12345"`        |
 | gclid       | string | Google Ads   | `"gclid": "EAIaIQob"`         |
-| gbraid      | string | Google Ads   | `"gbraid": "some_id"`         |
+
+### Event Data:
+| Parameter   | Type   | Required for | Example                       |
+| ----------- | ------ | ------------ | ----------------------------- |
 | event_name  | string | Facebook     | `"event_name": "Lead"`        |
 | value       | number | Both         | `"value": 100`                |
-| email       | string | Facebook     | `"email": "user@example.com"` |
-| phone       | string | Facebook     | `"phone": "+5511912345678"`   |
-| first_name  | string | Facebook     | `"first_name": "John"`        |
-| last_name   | string | Facebook     | `"last_name": "Doe"`          |
-| city        | string | Facebook     | `"city": "Sao Paulo"`         |
-| state       | string | Facebook     | `"state": "SP"`               |
-| country     | string | Facebook     | `"country": "BR"`             |
-| zip         | string | Facebook     | `"zip": "01234-567"`          |
-| external_id | string | Facebook     | `"external_id": "user123"`    |
+| currency    | string | Both         | `"currency": "USD"`           |
+
+### User Data (Facebook PII - auto-hashed):
+| Parameter   | Type   | Example                       |
+| ----------- | ------ | ----------------------------- |
+| email       | string | `"email": "user@example.com"` |
+| phone       | string | `"phone": "+5511912345678"`   |
+| first_name  | string | `"first_name": "John"`        |
+| last_name   | string | `"last_name": "Doe"`          |
+| city        | string | `"city": "Sao Paulo"`         |
+| state       | string | `"state": "SP"`               |
+| country     | string | `"country": "BR"`             |
+| zip         | string | `"zip": "01234-567"`          |
+| external_id | string | `"external_id": "user123"`    |
+
+### Custom Data (Facebook):
+| Parameter              | Type   | Example                             |
+| ---------------------- | ------ | ----------------------------------- |
+| predicted_ltv          | number | `"predicted_ltv": 500`              |
+| customer_segmentation  | string | `"customer_segmentation": "VIP"`    |
+| content_type           | string | `"content_type": "product"`         |
+| content_ids            | array  | `"content_ids": ["123", "456"]`     |
+| contents               | array  | `"contents": [{"id": "123"}]`       |
+| event_id               | string | `"event_id": "unique-event-123"`    |
 
 ---
 
@@ -118,23 +145,67 @@ You’ll see fields to configure:
 
 ---
 
-## ✅ Logging:
+## ✅ Response Format:
 
-For each call, the plugin will return a JSON showing the forwarding status and any API responses.
+Each API call returns a JSON response:
 
-Additionally, a log of recent postbacks is stored and available in your WordPress backend (under the plugin settings area).
+**Success:**
+```json
+{
+    "status": "completed",
+    "message": "Conversion successfully forwarded.",
+    "log": {
+        "facebook": { ... },
+        "google_ads": { ... }
+    }
+}
+```
+
+**Error:**
+```json
+{
+    "status": "error",
+    "message": "One or more errors occurred...",
+    "errors": {
+        "facebook": "Error message",
+        "google_ads": "Error message"
+    },
+    "log": { ... }
+}
+```
 
 ---
 
-## ✅ Disclaimer:
+## ✅ Developer Hooks:
 
-This plugin does **not handle OAuth token generation for Google Ads**.  
-You must generate the OAuth access token separately and paste it in the settings page.
+**Filter IP sources for log filtering:**
+```php
+// Provide IP source names
+add_filter('conversion_forwarder_ips_sources', function($sources) {
+    $sources[] = 'My Custom Source';
+    return $sources;
+});
+
+// Provide IPs to match against logs
+add_filter('conversion_forwarder_ips_to_match', function($ips) {
+    $ips[] = '192.168.1.100';
+    return $ips;
+});
+```
+
+---
+
+## ✅ Data Handling:
+
+-   **Maximum log entries**: 500,000 (automatically trimmed)
+-   **PII hashing**: All Facebook user data is SHA256 hashed before transmission
+-   **Storage**: Logs stored in WordPress options table with configurable prefix
+-   **CORS**: Endpoint supports cross-origin requests
 
 ---
 
 ## ✅ Future Improvements:
 
 -   Support for more advertising platforms (TikTok Ads, LinkedIn, etc.)
--   Built-in OAuth flow for Google Ads (coming soon)
--   More flexible event parameter mapping
+-   Enhanced event parameter mapping
+-   Webhook endpoint configuration

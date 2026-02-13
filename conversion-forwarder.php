@@ -1121,6 +1121,9 @@ function cf_settings_page()
                     placeholder="Search..." />
                 <input type="submit" value="Search" class="button" />
             </form>
+            <p style="margin-top: 3px; font-size: 10px;">
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder#recent-postbacks'); ?>">Clear all filters</a>
+            </p>
         </div>
 
         <div class="row">
@@ -1138,6 +1141,22 @@ function cf_settings_page()
                     <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder' . (!empty($search_query) ? '&search=' . urlencode($search_query) : '') . '#recent-postbacks'); ?>" class="button">Clear</a>
                 <?php } ?>
             </form>
+            <?php
+            // Calculate date ranges for quick filters
+            $today = date('Y-m-d');
+            $week_start = date('Y-m-d', strtotime('monday this week'));
+            $week_end = $today;
+            $month_start = date('Y-m-01');
+            $month_end = $today;
+            
+            $search_param = !empty($search_query) ? '&search=' . urlencode($search_query) : '';
+            ?>
+            <p style="margin-top: 3px; font-size: 10px;">
+                Presets:
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $today . '&end_date=' . $today . $search_param . '#recent-postbacks'); ?>">Today</a> | 
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $week_start . '&end_date=' . $week_end . $search_param . '#recent-postbacks'); ?>">This week</a> | 
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $month_start . '&end_date=' . $month_end . $search_param . '#recent-postbacks'); ?>">This month</a>
+            </p>
         </div>
 
         <div class="row">
