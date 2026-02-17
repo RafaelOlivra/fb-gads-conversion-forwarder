@@ -1087,7 +1087,7 @@ function cf_settings_page()
                                     beginAtZero: true,
                                     title: {
                                         display: true,
-                                        text: 'Number of Postbacks'
+                                        text: 'Unique Postbacks Count'
                                     },
                                     ticks: {
                                         precision: 0 // Ensure Y-axis ticks are integers
@@ -1100,7 +1100,7 @@ function cf_settings_page()
                                 },
                                 title: {
                                     display: true,
-                                    text: 'Daily Conversion Postbacks'
+                                    text: 'Postbacks by Day (Unique fbclid and gclid)'
                                 }
                             }
                         }
@@ -1148,13 +1148,13 @@ function cf_settings_page()
             $week_end = $today;
             $month_start = date('Y-m-01');
             $month_end = $today;
-            
+
             $search_param = !empty($search_query) ? '&search=' . urlencode($search_query) : '';
             ?>
             <p style="margin-top: 3px; font-size: 10px;">
                 Presets:
-                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $today . '&end_date=' . $today . $search_param . '#recent-postbacks'); ?>">Today</a> | 
-                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $week_start . '&end_date=' . $week_end . $search_param . '#recent-postbacks'); ?>">This week</a> | 
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $today . '&end_date=' . $today . $search_param . '#recent-postbacks'); ?>">Today</a> |
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $week_start . '&end_date=' . $week_end . $search_param . '#recent-postbacks'); ?>">This week</a> |
                 <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $month_start . '&end_date=' . $month_end . $search_param . '#recent-postbacks'); ?>">This month</a>
             </p>
         </div>
