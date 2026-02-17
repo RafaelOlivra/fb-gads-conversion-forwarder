@@ -993,6 +993,8 @@ function cf_settings_page()
     if ($log_data && is_array($log_data) && count($log_data) > 0) {
         $daily_fbclids = [];
         $daily_gclids = [];
+        $daily_fb_counts = [];
+        $daily_google_counts = [];
 
         // Sanitize and filter out unwanted strings
         $filter_strings = explode(',', get_option(CF_OPTIONS_PREFIX . 'postback_filter', ''));
@@ -1023,12 +1025,20 @@ function cf_settings_page()
             if (!isset($daily_gclids[$day])) {
                 $daily_gclids[$day] = [];
             }
+            if (!isset($daily_fb_counts[$day])) {
+                $daily_fb_counts[$day] = 0;
+            }
+            if (!isset($daily_google_counts[$day])) {
+                $daily_google_counts[$day] = 0;
+            }
 
             if (!empty($entry['fbclid'])) {
                 $daily_fbclids[$day][$entry['fbclid']] = true;
+                $daily_fb_counts[$day]++;
             }
             if (!empty($entry['gclid'])) {
                 $daily_gclids[$day][$entry['gclid']] = true;
+                $daily_google_counts[$day]++;
             }
         }
 
@@ -1036,14 +1046,24 @@ function cf_settings_page()
         sort($all_days);
 
         $labels = $all_days;
-        $data_fb = [];
-        $data_google = [];
+        $data_fb_unique = [];
+        $data_google_unique = [];
+        $data_fb_total = [];
+        $data_google_total = [];
 
         foreach ($all_days as $day) {
-            $data_fb[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
-            $data_google[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
+            $data_fb_unique[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
+            $data_google_unique[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
+            $data_fb_total[] = isset($daily_fb_counts[$day]) ? $daily_fb_counts[$day] : 0;
+            $data_google_total[] = isset($daily_google_counts[$day]) ? $daily_google_counts[$day] : 0;
         }
     ?>
+        <div style="margin-bottom:10px;text-align:right;margin-top:-40px;">
+            <div class="button-group" style="display:inline-flex; border:1px solid #ccc; border-radius:3px; overflow:hidden;">
+                <button id="cfViewUnique" class="button cf-view-btn" style="border-radius:0; border:none; background:#0073aa; color:#fff; margin:0;">Unique Postbacks</button>
+                <button id="cfViewTotal" class="button cf-view-btn" style="border-radius:0; border:none; margin:0;">Total Events</button>
+            </div>
+        </div>
         <div style="width:100%; height:300px; margin-bottom:20px;">
             <canvas id="cfPostbackChart"></canvas>
         </div>
@@ -1051,61 +1071,112 @@ function cf_settings_page()
         <script>
             document.addEventListener('DOMContentLoaded', function() {
                 const ctx = document.getElementById('cfPostbackChart');
-                if (ctx) { // Ensure canvas element exists
-                    new Chart(ctx.getContext('2d'), {
-                        type: 'bar',
-                        data: {
-                            labels: <?php echo json_encode($labels); ?>,
-                            datasets: [{
-                                    label: 'Facebook (fbclid)',
-                                    data: <?php echo json_encode($data_fb); ?>,
-                                    backgroundColor: '#3b5998',
-                                    borderColor: '#3b5998',
-                                    borderWidth: 1
-                                },
-                                {
-                                    label: 'Google (gclid)',
-                                    data: <?php echo json_encode($data_google); ?>,
-                                    backgroundColor: '#34a853',
-                                    borderColor: '#34a853',
-                                    borderWidth: 1
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false, // Allow canvas to resize freely within its container
-                            scales: {
-                                x: {
-                                    stacked: false,
-                                    title: {
-                                        display: true,
-                                        text: 'Date'
-                                    }
-                                },
-                                y: {
-                                    beginAtZero: true,
-                                    title: {
-                                        display: true,
-                                        text: 'Unique Postbacks Count'
-                                    },
-                                    ticks: {
-                                        precision: 0 // Ensure Y-axis ticks are integers
-                                    }
-                                }
+                if (!ctx) return;
+
+                // Chart data for both views
+                const chartData = {
+                    labels: <?php echo json_encode($labels); ?>,
+                    unique: {
+                        fb: <?php echo json_encode($data_fb_unique); ?>,
+                        google: <?php echo json_encode($data_google_unique); ?>
+                    },
+                    total: {
+                        fb: <?php echo json_encode($data_fb_total); ?>,
+                        google: <?php echo json_encode($data_google_total); ?>
+                    }
+                };
+
+                // Initialize chart with unique view
+                let currentView = 'unique';
+                const chart = new Chart(ctx.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                                label: 'Facebook (fbclid)',
+                                data: chartData.unique.fb,
+                                backgroundColor: '#3b5998',
+                                borderColor: '#3b5998',
+                                borderWidth: 1
                             },
-                            plugins: {
-                                legend: {
-                                    position: 'top',
-                                },
+                            {
+                                label: 'Google (gclid)',
+                                data: chartData.unique.google,
+                                backgroundColor: '#34a853',
+                                borderColor: '#34a853',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                stacked: false,
                                 title: {
                                     display: true,
-                                    text: 'Postbacks by Day (Unique fbclid and gclid)'
+                                    text: 'Date'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Count'
+                                },
+                                ticks: {
+                                    precision: 0
                                 }
                             }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: 'Postbacks by Day (Unique fbclid and gclid)'
+                            }
                         }
+                    }
+                });
+
+                // Toggle button styling
+                function updateButtonStyles(activeBtn) {
+                    document.querySelectorAll('.cf-view-btn').forEach(btn => {
+                        btn.style.background = '#f0f0f1';
+                        btn.style.color = '#2c3338';
                     });
+                    activeBtn.style.background = '#0073aa';
+                    activeBtn.style.color = '#fff';
                 }
+
+                // Switch to unique view
+                document.getElementById('cfViewUnique').addEventListener('click', function() {
+                    if (currentView === 'unique') return;
+                    currentView = 'unique';
+                    
+                    chart.data.datasets[0].data = chartData.unique.fb;
+                    chart.data.datasets[1].data = chartData.unique.google;
+                    chart.options.plugins.title.text = 'Postbacks by Day (Unique fbclid and gclid)';
+                    chart.update();
+                    
+                    updateButtonStyles(this);
+                });
+
+                // Switch to total view
+                document.getElementById('cfViewTotal').addEventListener('click', function() {
+                    if (currentView === 'total') return;
+                    currentView = 'total';
+                    
+                    chart.data.datasets[0].data = chartData.total.fb;
+                    chart.data.datasets[1].data = chartData.total.google;
+                    chart.options.plugins.title.text = 'Postbacks by Day (Total Events)';
+                    chart.update();
+                    
+                    updateButtonStyles(this);
+                });
             });
         </script>
 
