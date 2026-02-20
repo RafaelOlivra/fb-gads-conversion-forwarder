@@ -948,7 +948,7 @@ function cf_settings_page()
                         <th scope="row">Conversion Strings</th>
                         <td>
                             <textarea name="<?php echo CF_OPTIONS_PREFIX ?>conversion_strings" rows="4" cols="60" placeholder="event_name: Purchase&#10;event_name: Bet"><?php echo esc_textarea(get_option(CF_OPTIONS_PREFIX . 'conversion_strings')); ?></textarea>
-                            <p class="description">One per line (or comma-separated). If any string matches a log line, that entry counts as 1 conversion.</p>
+                            <p class="description">One per line (or comma-separated). If any string matches a log line, that entry counts as 1 conversion. In the analytics Conversions graph, matching entries also sum the <strong>value</strong> parameter.</p>
                         </td>
                     </tr>
                 </table>
@@ -1020,6 +1020,7 @@ function cf_settings_page()
         $daily_fb_counts = [];
         $daily_google_counts = [];
         $daily_conversion_counts = [];
+        $daily_conversion_values = [];
 
         // Sanitize and filter out unwanted strings
         $filter_strings = explode(',', get_option(CF_OPTIONS_PREFIX . 'postback_filter', ''));
@@ -1068,6 +1069,9 @@ function cf_settings_page()
             if (!isset($daily_conversion_counts[$day])) {
                 $daily_conversion_counts[$day] = 0;
             }
+            if (!isset($daily_conversion_values[$day])) {
+                $daily_conversion_values[$day] = 0;
+            }
 
             if (!empty($entry['fbclid'])) {
                 $daily_fbclids[$day][$entry['fbclid']] = true;
@@ -1106,6 +1110,7 @@ function cf_settings_page()
 
                 if ($matched_conversion) {
                     $daily_conversion_counts[$day]++;
+                    $daily_conversion_values[$day] += isset($entry['parameters']['value']) ? floatval($entry['parameters']['value']) : 0;
                 }
             }
         }
@@ -1119,6 +1124,7 @@ function cf_settings_page()
         $data_fb_total = [];
         $data_google_total = [];
         $data_conversions = [];
+        $data_conversion_values = [];
 
         foreach ($all_days as $day) {
             $data_fb_unique[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
@@ -1126,11 +1132,13 @@ function cf_settings_page()
             $data_fb_total[] = isset($daily_fb_counts[$day]) ? $daily_fb_counts[$day] : 0;
             $data_google_total[] = isset($daily_google_counts[$day]) ? $daily_google_counts[$day] : 0;
             $data_conversions[] = isset($daily_conversion_counts[$day]) ? $daily_conversion_counts[$day] : 0;
+            $data_conversion_values[] = isset($daily_conversion_values[$day]) ? round($daily_conversion_values[$day], 2) : 0;
         }
 
         $total_unique_count = array_sum($data_fb_unique) + array_sum($data_google_unique);
         $total_events_count = array_sum($data_fb_total) + array_sum($data_google_total);
         $total_conversions_count = array_sum($data_conversions);
+        $total_conversion_value = round(array_sum($data_conversion_values), 2);
     ?>
         <div style="margin-bottom:10px;text-align:right;margin-top:-40px;">
             <div class="button-group" style="display:inline-flex; border:1px solid #ccc; border-radius:3px; overflow:hidden;">
@@ -1162,10 +1170,14 @@ function cf_settings_page()
                     conversions: {
                         values: <?php echo json_encode($data_conversions); ?>
                     },
+                    conversionValues: {
+                        values: <?php echo json_encode($data_conversion_values); ?>
+                    },
                     counts: {
                         unique: <?php echo json_encode($total_unique_count); ?>,
                         total: <?php echo json_encode($total_events_count); ?>,
-                        conversions: <?php echo json_encode($total_conversions_count); ?>
+                        conversions: <?php echo json_encode($total_conversions_count); ?>,
+                        conversionValue: <?php echo json_encode($total_conversion_value); ?>
                     }
                 };
 
@@ -1214,7 +1226,15 @@ function cf_settings_page()
                         data: chartData.conversions.values,
                         backgroundColor: '#0073aa',
                         borderColor: '#0073aa',
-                        borderWidth: 1
+                        borderWidth: 1,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Conversion Value',
+                        data: chartData.conversionValues.values,
+                        backgroundColor: '#e2701f',
+                        borderColor: '#e2701f',
+                        borderWidth: 1,
+                        yAxisID: 'y1'
                     }];
                 }
 
@@ -1243,6 +1263,17 @@ function cf_settings_page()
                                 },
                                 ticks: {
                                     precision: 0
+                                }
+                            },
+                            y1: {
+                                beginAtZero: true,
+                                position: 'right',
+                                grid: {
+                                    drawOnChartArea: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Value'
                                 }
                             }
                         },
@@ -1298,7 +1329,7 @@ function cf_settings_page()
                     currentView = 'conversions';
 
                     chart.data.datasets = buildConversionsDataset();
-                    chart.options.plugins.title.text = 'Postbacks by Day (' + chartData.counts.conversions + ' Conversions)';
+                    chart.options.plugins.title.text = 'Postbacks by Day (' + chartData.counts.conversions + ' Conversions | Value: ' + chartData.counts.conversionValue + ')';
                     chart.update();
 
                     updateButtonStyles(this);
