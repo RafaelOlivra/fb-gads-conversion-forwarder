@@ -994,9 +994,10 @@ function cf_settings_page()
     $search_query = cf_get_search_query();
     $date_range = cf_get_date_range();
     $pagination = cf_get_current_log_page();
+    $is_all_time = !empty($_GET['all_time']) && $_GET['all_time'];
 
     // Default analytics view to current month when no date filter is provided
-    if (empty($date_range['start']) && empty($date_range['end'])) {
+    if (!$is_all_time && empty($date_range['start']) && empty($date_range['end'])) {
         $date_range['start'] = date('Y-m-01');
         $date_range['end'] = date('Y-m-d');
     }
@@ -1354,7 +1355,7 @@ function cf_settings_page()
                 <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $today . '&end_date=' . $today . $search_param . '#recent-postbacks'); ?>">Today</a> |
                 <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $week_start . '&end_date=' . $week_end . $search_param . '#recent-postbacks'); ?>">This week</a> |
                 <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $month_start . '&end_date=' . $month_end . $search_param . '#recent-postbacks'); ?>">This month</a> |
-                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics' . $search_param . '#recent-postbacks'); ?>">All Time</a>
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&all_time=1' . $search_param . '#recent-postbacks'); ?>">All Time</a>
             </p>
         </div>
 

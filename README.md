@@ -15,8 +15,11 @@ It listens for incoming HTTP POST or GET requests (from 3rd party sources like a
 - Automatic Google OAuth token refresh
 - Comprehensive postback logging with search & filtering
 - CSV export for logs and email lists
-- Visual analytics with daily conversion charts
-- IP-based filtering support
+- Visual analytics with daily charts for **Unique Posts**, **Total Events**, and **Conversions**
+- Analytics-first admin UI with native WordPress tabs (**Analytics** and **Settings**)
+- Default analytics range set to **current month** (with quick presets)
+- Conversion counting via configurable match strings (e.g. `event_name: Purchase`)
+- Optional IP-source-based log filtering support (via hooks)
 - Configurable storage prefix for multi-instance setups
 
 ---
@@ -127,10 +130,28 @@ You’ll see fields to configure:
 
 -   **Facebook API Token**
 -   **Facebook Pixel ID**
--   **Google Ads OAuth Token**
+-   **Google OAuth Client ID / Client Secret / Refresh Token**
 -   **Google Ads Developer Token**
 -   **Google Ads Customer ID**
 -   **Google Ads Conversion Action ID**
+-   **Permanent Postbacks Preview Filter** (strings to remove from displayed logs)
+-   **Conversion Strings** (one per line or comma-separated) used for conversion counting in analytics
+
+---
+
+## ✅ Analytics View:
+
+The Analytics tab includes:
+
+- Daily chart views with toggle tabs:
+    - **Unique Posts** (unique fbclid + gclid per day)
+    - **Total Events**
+    - **Conversions** (based on configured conversion strings)
+- Dynamic chart titles with totals (e.g. `Postbacks by Day (220 Unique fbclid and gclid)`)
+- Search and date filters
+- Date presets: **Today**, **This week**, **This month**, **All Time**
+- Export buttons (Logs and Emails) that respect active filters
+- Optional **Filter by IP Sources** button when IP source hooks are provided
 
 ---
 
@@ -140,7 +161,7 @@ You’ll see fields to configure:
 -   For **Google Ads**, you need:
     -   A Developer Token (from your Google Ads API Console)
     -   Customer ID (your Ads account number)
-    -   OAuth Access Token (you’ll need to generate this from Google OAuth flow)
+    -   OAuth Client ID + Client Secret + Refresh Token
     -   Conversion Action ID (configured in your Google Ads account)
 
 ---
