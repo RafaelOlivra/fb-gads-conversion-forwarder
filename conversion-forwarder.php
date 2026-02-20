@@ -712,9 +712,6 @@ add_action('admin_init', function () {
 /**
  * Handle log export action
  */
-/**
- * Handle log export action
- */
 function cf_export_logs()
 {
     // Check user permissions
@@ -1005,11 +1002,10 @@ function cf_settings_page()
     // Store if we have any data at all (before filtering)
     $has_any_data = $log_data && is_array($log_data) && count($log_data) > 0;
 
-    // Apply search and date filters BEFORE building chart
+    // Apply search and date filters
     if (!empty($search_query)) {
         $log_data = cf_search_logs($log_data, $search_query);
     }
-
     if (!empty($date_range['start']) || !empty($date_range['end'])) {
         $log_data = cf_filter_logs_by_date($log_data, $date_range['start'], $date_range['end']);
     }
