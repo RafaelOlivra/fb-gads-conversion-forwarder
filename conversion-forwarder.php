@@ -1353,7 +1353,8 @@ function cf_settings_page()
                 Presets:
                 <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $today . '&end_date=' . $today . $search_param . '#recent-postbacks'); ?>">Today</a> |
                 <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $week_start . '&end_date=' . $week_end . $search_param . '#recent-postbacks'); ?>">This week</a> |
-                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $month_start . '&end_date=' . $month_end . $search_param . '#recent-postbacks'); ?>">This month</a>
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $month_start . '&end_date=' . $month_end . $search_param . '#recent-postbacks'); ?>">This month</a> |
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics' . $search_param . '#recent-postbacks'); ?>">All Time</a>
             </p>
         </div>
 
