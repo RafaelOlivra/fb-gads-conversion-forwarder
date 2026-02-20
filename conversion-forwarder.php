@@ -807,6 +807,7 @@ add_action('admin_init', function () {
     register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'google_customer_id');
     register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'google_conversion_action_id');
     register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'postback_filter');
+    register_setting('cf_settings_group', CF_OPTIONS_PREFIX . 'conversion_strings');
 });
 
 /**
@@ -934,6 +935,13 @@ function cf_settings_page()
                         <td><input type="text" name="<?php echo CF_OPTIONS_PREFIX ?>postback_filter"
                                 value="<?php echo esc_attr(get_option(CF_OPTIONS_PREFIX . 'postback_filter')); ?>" /></td>
                     </tr>
+                    <tr valign="top">
+                        <th scope="row">Conversion Strings</th>
+                        <td>
+                            <textarea name="<?php echo CF_OPTIONS_PREFIX ?>conversion_strings" rows="4" cols="60" placeholder="event_name: Purchase&#10;event_name: Bet"><?php echo esc_textarea(get_option(CF_OPTIONS_PREFIX . 'conversion_strings')); ?></textarea>
+                            <p class="description">One per line (or comma-separated). If any string matches a log line, that entry counts as 1 conversion.</p>
+                        </td>
+                    </tr>
                 </table>
 
                 <?php submit_button(); ?>
@@ -995,10 +1003,20 @@ function cf_settings_page()
         $daily_gclids = [];
         $daily_fb_counts = [];
         $daily_google_counts = [];
+        $daily_conversion_counts = [];
 
         // Sanitize and filter out unwanted strings
         $filter_strings = explode(',', get_option(CF_OPTIONS_PREFIX . 'postback_filter', ''));
         $filter_strings = array_map('trim', $filter_strings);
+
+        // Conversion strings can be one-per-line or comma-separated
+        $conversion_strings_raw = get_option(CF_OPTIONS_PREFIX . 'conversion_strings', '');
+        $conversion_strings = preg_split('/[\r\n,]+/', (string) $conversion_strings_raw);
+        $conversion_strings = array_values(array_filter(array_map(function ($value) {
+            return trim(trim($value), ',');
+        }, $conversion_strings), function ($value) {
+            return $value !== '';
+        }));
 
         foreach ($log_data as $i => $entry) {
             $continue = true;
@@ -1031,6 +1049,9 @@ function cf_settings_page()
             if (!isset($daily_google_counts[$day])) {
                 $daily_google_counts[$day] = 0;
             }
+            if (!isset($daily_conversion_counts[$day])) {
+                $daily_conversion_counts[$day] = 0;
+            }
 
             if (!empty($entry['fbclid'])) {
                 $daily_fbclids[$day][$entry['fbclid']] = true;
@@ -1039,6 +1060,37 @@ function cf_settings_page()
             if (!empty($entry['gclid'])) {
                 $daily_gclids[$day][$entry['gclid']] = true;
                 $daily_google_counts[$day]++;
+            }
+
+            if (!empty($conversion_strings)) {
+                $entry_searchable_text = '';
+                if (isset($entry['parameters']) && is_array($entry['parameters'])) {
+                    foreach ($entry['parameters'] as $key => $value) {
+                        if (is_bool($value)) {
+                            $entry_searchable_text .= $key . ': ' . ($value ? 'true' : 'false') . "\n";
+                        } else if (is_array($value) || is_object($value)) {
+                            $entry_searchable_text .= $key . ': ' . json_encode($value, JSON_PRETTY_PRINT) . "\n";
+                        } else {
+                            $entry_searchable_text .= $key . ': ' . $value . "\n";
+                        }
+                    }
+                }
+
+                $matched_conversion = false;
+                foreach ($conversion_strings as $conversion_string) {
+                    if (
+                        stripos($entry_searchable_text, $conversion_string) !== false ||
+                        stripos(json_encode($entry['parameters']), $conversion_string) !== false ||
+                        stripos(json_encode($entry), $conversion_string) !== false
+                    ) {
+                        $matched_conversion = true;
+                        break;
+                    }
+                }
+
+                if ($matched_conversion) {
+                    $daily_conversion_counts[$day]++;
+                }
             }
         }
 
@@ -1050,18 +1102,25 @@ function cf_settings_page()
         $data_google_unique = [];
         $data_fb_total = [];
         $data_google_total = [];
+        $data_conversions = [];
 
         foreach ($all_days as $day) {
             $data_fb_unique[] = isset($daily_fbclids[$day]) ? count($daily_fbclids[$day]) : 0;
             $data_google_unique[] = isset($daily_gclids[$day]) ? count($daily_gclids[$day]) : 0;
             $data_fb_total[] = isset($daily_fb_counts[$day]) ? $daily_fb_counts[$day] : 0;
             $data_google_total[] = isset($daily_google_counts[$day]) ? $daily_google_counts[$day] : 0;
+            $data_conversions[] = isset($daily_conversion_counts[$day]) ? $daily_conversion_counts[$day] : 0;
         }
+
+        $total_unique_count = array_sum($data_fb_unique) + array_sum($data_google_unique);
+        $total_events_count = array_sum($data_fb_total) + array_sum($data_google_total);
+        $total_conversions_count = array_sum($data_conversions);
     ?>
         <div style="margin-bottom:10px;text-align:right;margin-top:-40px;">
             <div class="button-group" style="display:inline-flex; border:1px solid #ccc; border-radius:3px; overflow:hidden;">
-                <button id="cfViewUnique" class="button cf-view-btn" style="border-radius:0; border:none; background:#0073aa; color:#fff; margin:0;">Unique Postbacks</button>
+                <button id="cfViewUnique" class="button cf-view-btn" style="border-radius:0; border:none; background:#0073aa; color:#fff; margin:0;">Unique Posts</button>
                 <button id="cfViewTotal" class="button cf-view-btn" style="border-radius:0; border:none; margin:0;">Total Events</button>
+                <button id="cfViewConversions" class="button cf-view-btn" style="border-radius:0; border:none; margin:0;">Conversions</button>
             </div>
         </div>
         <div style="width:100%; height:300px; margin-bottom:20px;">
@@ -1083,30 +1142,71 @@ function cf_settings_page()
                     total: {
                         fb: <?php echo json_encode($data_fb_total); ?>,
                         google: <?php echo json_encode($data_google_total); ?>
+                    },
+                    conversions: {
+                        values: <?php echo json_encode($data_conversions); ?>
+                    },
+                    counts: {
+                        unique: <?php echo json_encode($total_unique_count); ?>,
+                        total: <?php echo json_encode($total_events_count); ?>,
+                        conversions: <?php echo json_encode($total_conversions_count); ?>
                     }
                 };
 
                 // Initialize chart with unique view
                 let currentView = 'unique';
+
+                function buildUniqueDatasets() {
+                    return [{
+                            label: 'Facebook (fbclid)',
+                            data: chartData.unique.fb,
+                            backgroundColor: '#3b5998',
+                            borderColor: '#3b5998',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Google (gclid)',
+                            data: chartData.unique.google,
+                            backgroundColor: '#34a853',
+                            borderColor: '#34a853',
+                            borderWidth: 1
+                        }
+                    ];
+                }
+
+                function buildTotalDatasets() {
+                    return [{
+                            label: 'Facebook (fbclid)',
+                            data: chartData.total.fb,
+                            backgroundColor: '#3b5998',
+                            borderColor: '#3b5998',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Google (gclid)',
+                            data: chartData.total.google,
+                            backgroundColor: '#34a853',
+                            borderColor: '#34a853',
+                            borderWidth: 1
+                        }
+                    ];
+                }
+
+                function buildConversionsDataset() {
+                    return [{
+                        label: 'Conversions',
+                        data: chartData.conversions.values,
+                        backgroundColor: '#0073aa',
+                        borderColor: '#0073aa',
+                        borderWidth: 1
+                    }];
+                }
+
                 const chart = new Chart(ctx.getContext('2d'), {
                     type: 'bar',
                     data: {
                         labels: chartData.labels,
-                        datasets: [{
-                                label: 'Facebook (fbclid)',
-                                data: chartData.unique.fb,
-                                backgroundColor: '#3b5998',
-                                borderColor: '#3b5998',
-                                borderWidth: 1
-                            },
-                            {
-                                label: 'Google (gclid)',
-                                data: chartData.unique.google,
-                                backgroundColor: '#34a853',
-                                borderColor: '#34a853',
-                                borderWidth: 1
-                            }
-                        ]
+                        datasets: buildUniqueDatasets()
                     },
                     options: {
                         responsive: true,
@@ -1136,7 +1236,7 @@ function cf_settings_page()
                             },
                             title: {
                                 display: true,
-                                text: 'Postbacks by Day (Unique fbclid and gclid)'
+                                text: 'Postbacks by Day (' + chartData.counts.unique + ' Unique fbclid and gclid)'
                             }
                         }
                     }
@@ -1156,12 +1256,11 @@ function cf_settings_page()
                 document.getElementById('cfViewUnique').addEventListener('click', function() {
                     if (currentView === 'unique') return;
                     currentView = 'unique';
-                    
-                    chart.data.datasets[0].data = chartData.unique.fb;
-                    chart.data.datasets[1].data = chartData.unique.google;
-                    chart.options.plugins.title.text = 'Postbacks by Day (Unique fbclid and gclid)';
+
+                    chart.data.datasets = buildUniqueDatasets();
+                    chart.options.plugins.title.text = 'Postbacks by Day (' + chartData.counts.unique + ' Unique fbclid and gclid)';
                     chart.update();
-                    
+
                     updateButtonStyles(this);
                 });
 
@@ -1169,12 +1268,23 @@ function cf_settings_page()
                 document.getElementById('cfViewTotal').addEventListener('click', function() {
                     if (currentView === 'total') return;
                     currentView = 'total';
-                    
-                    chart.data.datasets[0].data = chartData.total.fb;
-                    chart.data.datasets[1].data = chartData.total.google;
-                    chart.options.plugins.title.text = 'Postbacks by Day (Total Events)';
+
+                    chart.data.datasets = buildTotalDatasets();
+                    chart.options.plugins.title.text = 'Postbacks by Day (' + chartData.counts.total + ' Total Events)';
                     chart.update();
-                    
+
+                    updateButtonStyles(this);
+                });
+
+                // Switch to conversions view
+                document.getElementById('cfViewConversions').addEventListener('click', function() {
+                    if (currentView === 'conversions') return;
+                    currentView = 'conversions';
+
+                    chart.data.datasets = buildConversionsDataset();
+                    chart.options.plugins.title.text = 'Postbacks by Day (' + chartData.counts.conversions + ' Conversions)';
+                    chart.update();
+
                     updateButtonStyles(this);
                 });
             });
