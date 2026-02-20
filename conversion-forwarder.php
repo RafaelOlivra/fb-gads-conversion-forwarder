@@ -995,6 +995,12 @@ function cf_settings_page()
     $date_range = cf_get_date_range();
     $pagination = cf_get_current_log_page();
 
+    // Default analytics view to current month when no date filter is provided
+    if (empty($date_range['start']) && empty($date_range['end'])) {
+        $date_range['start'] = date('Y-m-01');
+        $date_range['end'] = date('Y-m-d');
+    }
+
     // Store if we have any data at all (before filtering)
     $has_any_data = $log_data && is_array($log_data) && count($log_data) > 0;
 
@@ -1127,7 +1133,7 @@ function cf_settings_page()
     ?>
         <div style="margin-bottom:10px;text-align:right;margin-top:-40px;">
             <div class="button-group" style="display:inline-flex; border:1px solid #ccc; border-radius:3px; overflow:hidden;">
-                <button id="cfViewUnique" class="button cf-view-btn" style="border-radius:0; border:none; background:#0073aa; color:#fff; margin:0;">Unique Posts</button>
+                <button id="cfViewUnique" class="button cf-view-btn" style="border-radius:0; border:none; background:#0073aa; color:#fff; margin:0;">Unique Postbacks</button>
                 <button id="cfViewTotal" class="button cf-view-btn" style="border-radius:0; border:none; margin:0;">Total Events</button>
                 <button id="cfViewConversions" class="button cf-view-btn" style="border-radius:0; border:none; margin:0;">Conversions</button>
             </div>
