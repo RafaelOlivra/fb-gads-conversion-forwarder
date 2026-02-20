@@ -816,6 +816,9 @@ add_action('admin_init', function () {
  */
 function cf_settings_page()
 {
+    $active_tab = (isset($_GET['cf_tab']) && $_GET['cf_tab'] === 'settings') ? 'settings' : 'analytics';
+    $analytics_tab_url = admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics#recent-postbacks');
+    $settings_tab_url = admin_url('/options-general.php?page=conversion_forwarder&cf_tab=settings');
 ?>
     <style>
         .cf-parameters {
@@ -837,7 +840,13 @@ function cf_settings_page()
         }
     </style>
     <div class="wrap">
-        <h1>Conversion Forwarder Settings</h1>
+        <h1>Conversion Forwarder</h1>
+        <h2 class="nav-tab-wrapper">
+            <a href="<?php echo esc_url($analytics_tab_url); ?>" class="nav-tab <?php echo $active_tab === 'analytics' ? 'nav-tab-active' : ''; ?>">Analytics</a>
+            <a href="<?php echo esc_url($settings_tab_url); ?>" class="nav-tab <?php echo $active_tab === 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
+        </h2>
+
+        <?php if ($active_tab === 'settings') { ?>
         <p>Configure the settings for forwarding conversions to Facebook and Google Ads.</p>
         <form method="post" action="options.php" class="cf-settings-form">
             <?php
@@ -971,10 +980,10 @@ function cf_settings_page()
 }
 </pre>
         </form>
-    </div>
+    <?php } ?>
 
-    <hr>
-
+    <?php if ($active_tab === 'analytics') { ?>
+    
     <h2 id="recent-postbacks">Recent Postbacks</h2>
 
     <?php
@@ -1298,18 +1307,20 @@ function cf_settings_page()
         <div class="row">
             <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>">
                 <input type="hidden" name="page" value="conversion_forwarder" />
+                <input type="hidden" name="cf_tab" value="analytics" />
                 <input type="text" name="search" value="<?php echo esc_attr($search_query); ?>"
                     placeholder="Search..." />
                 <input type="submit" value="Search" class="button" />
             </form>
             <p style="margin-top: 3px; font-size: 10px;">
-                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder#recent-postbacks'); ?>">Clear all filters</a>
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics#recent-postbacks'); ?>">Clear all filters</a>
             </p>
         </div>
 
         <div class="row">
             <form method="GET" action="<?php echo admin_url('/options-general.php#conversion-log') ?>" style="display: flex; gap: 5px; align-items: center;">
                 <input type="hidden" name="page" value="conversion_forwarder" />
+                <input type="hidden" name="cf_tab" value="analytics" />
                 <?php if (!empty($search_query)) { ?>
                     <input type="hidden" name="search" value="<?php echo esc_attr($search_query); ?>" />
                 <?php } ?>
@@ -1319,7 +1330,7 @@ function cf_settings_page()
                 <input type="date" id="end_date" name="end_date" value="<?php echo esc_attr($date_range['end']); ?>" />
                 <input type="submit" value="Filter" class="button" />
                 <?php if (!empty($date_range['start']) || !empty($date_range['end'])) { ?>
-                    <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder' . (!empty($search_query) ? '&search=' . urlencode($search_query) : '') . '#recent-postbacks'); ?>" class="button">Clear</a>
+                    <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics' . (!empty($search_query) ? '&search=' . urlencode($search_query) : '') . '#recent-postbacks'); ?>" class="button">Clear</a>
                 <?php } ?>
             </form>
             <?php
@@ -1334,9 +1345,9 @@ function cf_settings_page()
             ?>
             <p style="margin-top: 3px; font-size: 10px;">
                 Presets:
-                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $today . '&end_date=' . $today . $search_param . '#recent-postbacks'); ?>">Today</a> |
-                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $week_start . '&end_date=' . $week_end . $search_param . '#recent-postbacks'); ?>">This week</a> |
-                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&start_date=' . $month_start . '&end_date=' . $month_end . $search_param . '#recent-postbacks'); ?>">This month</a>
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $today . '&end_date=' . $today . $search_param . '#recent-postbacks'); ?>">Today</a> |
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $week_start . '&end_date=' . $week_end . $search_param . '#recent-postbacks'); ?>">This week</a> |
+                <a href="<?php echo admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&start_date=' . $month_start . '&end_date=' . $month_end . $search_param . '#recent-postbacks'); ?>">This month</a>
             </p>
         </div>
 
@@ -1350,12 +1361,12 @@ function cf_settings_page()
                 $export_params .= '&end_date=' . urlencode($date_range['end']);
             }
             ?>
-            <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_logs&' . $export_params)) ?>" class="button"><?php echo __('Export Logs') ?></a>
+            <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&action=export_logs&' . $export_params)) ?>" class="button"><?php echo __('Export Logs') ?></a>
             <p style="margin-top: 3px; font-size: 10px;">Search and date filters will be applied.</p>
         </div>
 
         <div class="row">
-            <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&action=export_emails&' . $export_params)) ?>" class="button"><?php echo __('Export Emails') ?></a>
+            <a href="<?php echo esc_url_raw(admin_url('/options-general.php?page=conversion_forwarder&cf_tab=analytics&action=export_emails&' . $export_params)) ?>" class="button"><?php echo __('Export Emails') ?></a>
             <p style="margin-top: 3px; font-size: 10px;">Search and date filters will be applied.</p>
         </div>
 
@@ -1370,6 +1381,7 @@ function cf_settings_page()
 
             $filter_by_ip_url = add_query_arg('filter_ips_by_sources', true, admin_url('/options-general.php#conversion-log'));
             $filter_by_ip_url = add_query_arg('page', 'conversion_forwarder', $filter_by_ip_url);
+            $filter_by_ip_url = add_query_arg('cf_tab', 'analytics', $filter_by_ip_url);
             $filter_by_ip_url = add_query_arg('pbpage', $pagination, $filter_by_ip_url);
             $sources = "(" . implode(',', $ips_sources) . ")";
 
@@ -1476,7 +1488,7 @@ function cf_settings_page()
                     if ($i === $pagination) {
                         echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
                     } else {
-                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
+                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&cf_tab=analytics&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
                     }
                 }
             }
@@ -1486,7 +1498,7 @@ function cf_settings_page()
                 if ($pagination == 1) {
                     echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">1</span>';
                 } else {
-                    echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=1' . $query_string . '#recent-postbacks" style="margin-left: 5px;">1</a>';
+                    echo '<a class="tablenav-page" href="?page=conversion_forwarder&cf_tab=analytics&pbpage=1' . $query_string . '#recent-postbacks" style="margin-left: 5px;">1</a>';
                 }
 
                 // Add "..." if current is far from start
@@ -1502,7 +1514,7 @@ function cf_settings_page()
                     if ($i === $pagination) {
                         echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $i . '</span>';
                     } else {
-                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
+                        echo '<a class="tablenav-page" href="?page=conversion_forwarder&cf_tab=analytics&pbpage=' . $i . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $i . '</a>';
                     }
                 }
 
@@ -1515,7 +1527,7 @@ function cf_settings_page()
                 if ($pagination == $total_pages) {
                     echo '<span class="tablenav-page tablenav-page-current" style="margin-left: 5px;">' . $total_pages . '</span>';
                 } else {
-                    echo '<a class="tablenav-page" href="?page=conversion_forwarder&pbpage=' . $total_pages . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $total_pages . '</a>';
+                    echo '<a class="tablenav-page" href="?page=conversion_forwarder&cf_tab=analytics&pbpage=' . $total_pages . $query_string . '#recent-postbacks" style="margin-left: 5px;">' . $total_pages . '</a>';
                 }
             }
 
@@ -1533,6 +1545,8 @@ function cf_settings_page()
         }
     }
     ?>
+
+        <?php } ?>
 
     </div>
 <?php
