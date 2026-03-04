@@ -108,6 +108,19 @@ function cf_handle_incoming_conversion(WP_REST_Request $request)
     }
 
     $params = $request->get_params(); // Get all parameters from the incoming request.
+
+    // === Handle Base64 Encoded Payload ===
+    // If a 'base64' parameter is provided, decode it and use it as the parameters.
+    if (!empty($params['base64'])) {
+        $decoded = base64_decode($params['base64'], true);
+        if ($decoded) {
+            $json_params = json_decode($decoded, true);
+            if (is_array($json_params)) {
+                $params = array_merge($params, $json_params);
+            }
+        }
+    }
+
     $log = []; // Initialize array to store successful API responses.
     $errors = []; // Initialize array to store any errors encountered.
     $timestamp = time(); // Current Unix timestamp for event timing.
@@ -974,6 +987,12 @@ function cf_settings_page()
     "country": "US",
     "zip": "90210",
     "external_id": "user123"
+}
+</pre>
+                <p>Alternatively, encrypt the JSON payload in base64 to add some basic anonymity:</p>
+                <pre>
+{
+    "base64": "eyAiZmJjbGlkIjogIkFCQ0QxMjM0...",
 }
 </pre>
         </form>
